@@ -2,6 +2,7 @@ import { useContext, useState } from "react";
 import { login } from "../services/auth";
 import { UserContext } from "../components/context/UserContext";
 import { useNavigate } from "react-router";
+import { Eye, EyeOff } from "lucide-react";
 
 export default function SignIn() {
     const navigate = useNavigate();
@@ -12,6 +13,7 @@ export default function SignIn() {
     });
     const [errorMessage, setErrorMessage] = useState("");
     const [loading, setLoading] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value } = e.target;
@@ -45,6 +47,7 @@ export default function SignIn() {
                 });
                 navigate("/");
             } else {
+                console.log(response);
                 setErrorMessage(response.error);
             }
         } catch (error) {
@@ -55,7 +58,7 @@ export default function SignIn() {
 
     return (
         <div className="mx-auto w-fit flex flex-col justify-center items-center">
-            <h1 className="text-6xl font-bold text-sky-900 mb-10">
+            <h1 className="text-6xl font-bold text-sky-900 mb-10 text-center">
                 Login to Chat Today!
             </h1>
 
@@ -78,11 +81,26 @@ export default function SignIn() {
                 </label>
 
                 <label>
-                    <p className="font-bold text-xl text-white mb-2">
-                        Password
-                    </p>
+                    <div className="flex justify-between">
+                        <p className="font-bold text-xl text-white mb-2">
+                            Password
+                        </p>
+
+                        {showPassword ? (
+                            <EyeOff
+                                className="text-white cursor-pointer"
+                                onClick={() => setShowPassword(false)}
+                            />
+                        ) : (
+                            <Eye
+                                onClick={() => setShowPassword(true)}
+                                className="text-white cursor-pointer"
+                            />
+                        )}
+                    </div>
+
                     <input
-                        type="text"
+                        type={showPassword ? "text" : "password"}
                         placeholder="Password"
                         name="password"
                         className="bg-white rounded-xl px-4 py-2 w-full mb-6"
@@ -91,7 +109,6 @@ export default function SignIn() {
                     />
                 </label>
 
-                <p className="text-red-500">{errorMessage}</p>
                 <div className="text-right">
                     {loading ? (
                         <span className="loader"></span>
@@ -107,6 +124,8 @@ export default function SignIn() {
                     )}
                 </div>
             </form>
+
+            <p className="text-red-500">{errorMessage}</p>
         </div>
     );
 }

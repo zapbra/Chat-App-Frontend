@@ -44,6 +44,11 @@ export async function refreshToken(): Promise<
     | { success: false; error: string; status?: number }
 > {
     try {
+        const response = await fetch(`${URL}/refresh`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({}),
+        });
     } catch (error: any) {
         return {
             success: false,
