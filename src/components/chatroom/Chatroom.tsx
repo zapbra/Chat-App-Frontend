@@ -1,5 +1,11 @@
-import React, { useState, useEffect, useContext, useRef } from "react";
-import { socket } from "../socket";
+import React, {
+    useState,
+    useEffect,
+    useContext,
+    useRef,
+    useCallback,
+} from "react";
+import { useSocket } from "../socket";
 import SendMessage from "./SendMessage";
 import { Message } from "../../types";
 import { useParams } from "react-router";
@@ -7,6 +13,7 @@ import messages from "../../data/messages.json";
 import DisplayMessage from "./DisplayMessage";
 import { UserContext } from "../context/UserContext";
 import { Link } from "react-router";
+import ChatroomSidebar from "./ChatroomSidebar";
 
 const typedMessages: Message[] = messages;
 
@@ -20,67 +27,75 @@ export default function Chatroom() {
     const roomId = Number(params.roomId!);
     const [messages, setMessages] = useState<Message[]>([]);
     const messagesRef = useRef(messages);
-    const [connected, setConnected] = useState(socket.connected);
+    const socket = useSocket();
+    const [connected, setConnected] = useState(false);
     const chatRef = useRef<HTMLDivElement>(null);
     const shouldScrollToBottom = useRef(false);
     const lastBeforeIdRef = useRef<number | null>(null); // prevent repeat fetch
     const [hasMore, setHasMore] = useState(true);
+    const [members, setMembers] = useState<string[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         messagesRef.current = messages;
     }, [messages]);
 
-    /**
-     * Fetches a batch of older messages, typically on page scroll
-     * @param roomId Room id to send the message to
-     * @param oldestMsgId id of oldest message to handling fetching older messages
-     * @param limit amount of messages to fetch at a time
-     */
-    const fetchMessages = async (
-        roomId: number,
-        oldestMsgId: number,
-        limit: number = LIMIT
-    ) => {
-        if (!hasMore) return;
-        if (lastBeforeIdRef.current === oldestMsgId) return; // avoid refetching
-        const container = chatRef.current;
-        if (!container) return;
-        const prevScrollHeight = container.scrollHeight;
+    // Fetch messages with proper error handling
+    const fetchMessages = useCallback(
+        async (roomId: number, oldestMsgId?: number, limit: number = LIMIT) => {
+            if (!hasMore && oldestMsgId) return;
+            if (oldestMsgId && lastBeforeIdRef.current === oldestMsgId) return;
 
-        const response = await fetch(
-            `${URL}/rooms/${roomId}?beforeId=${oldestMsgId}&limit=${limit}`,
-            {
-                method: "GET",
-                headers: { "Content-Type": "application/json" },
+            try {
+                const url = oldestMsgId
+                    ? `${URL}/rooms/${roomId}?beforeId=${oldestMsgId}&limit=${limit}`
+                    : `${URL}/rooms/${roomId}`;
+
+                const response = await fetch(url);
+                if (!response.ok) throw new Error("Failed to fetch messages");
+
+                const data = await response.json();
+                if (data.messages.length === 0) {
+                    setHasMore(false);
+                    return;
+                }
+
+                if (oldestMsgId) {
+                    lastBeforeIdRef.current = oldestMsgId;
+                    const container = chatRef.current;
+                    const prevScrollHeight = container?.scrollHeight || 0;
+
+                    setMessages((prev) => {
+                        setTimeout(() => {
+                            if (container) {
+                                const newScrollHeight = container.scrollHeight;
+                                container.scrollTop =
+                                    newScrollHeight - prevScrollHeight;
+                            }
+                        }, 0);
+                        return [...data.messages, ...prev];
+                    });
+                } else {
+                    shouldScrollToBottom.current = true;
+                    setMessages(data.messages);
+                }
+            } catch (err) {
+                setError(
+                    err instanceof Error
+                        ? err.message
+                        : "Failed to load messages"
+                );
+                console.error(err);
             }
-        );
+        },
+        [hasMore]
+    );
 
-        // set messages if retrieved with no errors
-        if (response.ok) {
-            const data = await response.json();
-            console.log("fetched data");
-            console.log(data);
-            if (data.messages.length === 0) {
-                setHasMore(false);
-                return;
-            }
-
-            lastBeforeIdRef.current = oldestMsgId;
-
-            setMessages((prev) => {
-                setTimeout(() => {
-                    const newScrollHeight = container.scrollHeight;
-                    container.scrollTop = newScrollHeight - prevScrollHeight;
-                }, 0);
-                return [...data.messages, ...prev];
-            });
-        } else {
-            // show an error message or popup if failed to get room
-        }
-    };
-
-    // Handles connect and disconnect
+    // Socket connection handlers
     useEffect(() => {
+        if (!socket) return;
+
         const handleConnect = () => setConnected(true);
         const handleDisconnect = () => setConnected(false);
 
@@ -91,24 +106,41 @@ export default function Chatroom() {
             socket.off("connect", handleConnect);
             socket.off("disconnect", handleDisconnect);
         };
-    }, []);
+    }, [socket]);
 
-    // Handles joining/leaving the room, receiving chat messages in this room and fetches the initial messages.
+    // Room initialization and cleanup
     useEffect(() => {
-        const fetchInitialMessages = async () => {
-            const response = await fetch(`${URL}/rooms/${roomId}`);
+        if (!socket || !user) return;
+        const loadInitialData = async () => {
+            try {
+                setLoading(true);
+                setError(null);
 
-            // set messages if retrieved with no errors
-            if (response.ok) {
-                const data = await response.json();
+                const [messagesRes, membersRes] = await Promise.all([
+                    fetch(`${URL}/rooms/${roomId}`),
+                    fetch(`${URL}/rooms/${roomId}/members`),
+                ]);
+
+                if (!messagesRes.ok) throw new Error("Failed to load messages");
+                if (!membersRes.ok) throw new Error("Failed to load members");
+
+                const [messagesData, membersData] = await Promise.all([
+                    messagesRes.json(),
+                    membersRes.json(),
+                ]);
+
+                setMessages(messagesData.messages);
+                setMembers(membersData.members);
                 shouldScrollToBottom.current = true;
-                setMessages(data.messages);
-            } else {
-                // show an error message or popup if failed to get room
+            } catch (err) {
+                setError(
+                    err instanceof Error ? err.message : "Initialization failed"
+                );
+                console.error(err);
+            } finally {
+                setLoading(false);
             }
         };
-
-        fetchInitialMessages();
 
         const handleMessage = (msg: Message) => {
             setMessages((prev) => {
@@ -117,77 +149,94 @@ export default function Chatroom() {
             });
         };
 
+        const handleMemberUpdate = (newMembers: string[]) => {
+            setMembers(newMembers);
+        };
+
+        loadInitialData();
         socket.emit("join room", roomId);
-        socket.on(`chat message`, handleMessage);
+        socket.on("chat message", handleMessage);
+        socket.on("members:updated", handleMemberUpdate);
 
         return () => {
             socket.emit("leave room", roomId);
-            socket.off(`chat message`, handleMessage);
+            socket.off("chat message", handleMessage);
+            socket.off("members:updated", handleMemberUpdate);
         };
-    }, []);
+    }, [socket, roomId, user]);
 
-    // Handles scrollbar scrolling to bottom on new message being sent.
-    // Only scrolls to the bottom when a new message is sent by user, flags to prevent it scrolling to bottom when new
-    // messages are fetched
+    // Auto-scroll to bottom when new messages arrive
     useEffect(() => {
-        const container = chatRef.current;
-        if (!container) return;
-
-        if (shouldScrollToBottom.current) {
-            container.scrollTop = container.scrollHeight;
-            shouldScrollToBottom.current = false;
-        }
+        if (!shouldScrollToBottom.current || !chatRef.current) return;
+        chatRef.current.scrollTop = chatRef.current.scrollHeight;
+        shouldScrollToBottom.current = false;
     }, [messages]);
 
-    // Handles fetching new messages when user scrolls to the top of the page
+    // Infinite scroll handler
     useEffect(() => {
         const container = chatRef.current;
         if (!container) return;
-        const handleScroll = () => {
-            const isTop = container.scrollTop === 0;
 
-            if (isTop) {
-                fetchMessages(roomId, Number(messagesRef.current[0].id));
+        const handleScroll = () => {
+            if (container.scrollTop === 0 && messages.length > 0) {
+                fetchMessages(roomId, Number(messages[0].id));
             }
         };
 
         container.addEventListener("scroll", handleScroll);
-
         return () => container.removeEventListener("scroll", handleScroll);
-    }, []);
+    }, [messages, roomId, fetchMessages]);
+
+    if (loading)
+        return <div className="loading-indicator">Loading chatroom...</div>;
+    if (error) return <div className="error-message">Error: {error}</div>;
 
     return (
         <div className=" max-w-[1440px] mx-auto px-6">
             <Link to="/">
-                <button className="bg-sky-500 text-white px-4 py-2 rounded-lg cursor-pointer hover:bg-sky-700 transition mb-6">
+                <button className="bg-sky-500 text-white px-4 py-2 rounded cursor-pointer hover:bg-sky-700 transition mb-6">
                     Back to Chat Rooms
                 </button>
             </Link>
-            <div className="max-w-[800px] mx-auto bg-sky-800 rounded-lg  py-3 ">
-                <div className="h-[75vh] overflow-y-auto px-10" ref={chatRef}>
-                    {messages.map((message) => {
-                        return (
-                            <DisplayMessage
-                                message={message}
-                                isUserMessage={message.sender_id == user.userId}
-                            />
-                        );
-                    })}
+            <div className="flex w-full justify-center">
+                {/** Main Chat */}
+                <div className="max-w-[800px]  bg-sky-800 rounded-tl-lg rounded-bl-lg py-3 ">
+                    <div
+                        className="h-[75vh] overflow-y-auto px-10"
+                        ref={chatRef}
+                    >
+                        {messages.map((message) => {
+                            return (
+                                <DisplayMessage
+                                    message={message}
+                                    isUserMessage={
+                                        message.sender_id == user.userId
+                                    }
+                                />
+                            );
+                        })}
+                    </div>
+                    <div className="px-10">
+                        {user.loggedIn ? (
+                            <SendMessage roomId={roomId} />
+                        ) : (
+                            <div className="flex justify-end bg-sky-500 rounded-lg px-2 py-2">
+                                <Link to="/sign-up">
+                                    <button className="bg-white hover:bg-sky-50 transition text-sky-500 text-lg px-4 py-2 rounded-lg cursor-pointer">
+                                        Sign up to send messages
+                                    </button>
+                                </Link>
+                            </div>
+                        )}
+                    </div>
+                    {/* <p>{connected ? "true" : "false"}</p> */}
                 </div>
-                <div className="px-10">
-                    {user.loggedIn ? (
-                        <SendMessage roomId={roomId} />
-                    ) : (
-                        <div className="flex justify-end bg-sky-500 rounded-lg px-2 py-2">
-                            <Link to="/sign-up">
-                                <button className="bg-white hover:bg-sky-50 transition text-sky-500 text-lg px-4 py-2 rounded-lg cursor-pointer">
-                                    Sign up to send messages
-                                </button>
-                            </Link>
-                        </div>
-                    )}
-                </div>
-                {/* <p>{connected ? "true" : "false"}</p> */}
+
+                <ChatroomSidebar
+                    chatterCount={members.length}
+                    chatters={members}
+                />
+                {/** End of main chat */}
             </div>
         </div>
     );

@@ -1,12 +1,12 @@
 import { useContext, useState } from "react";
-import { socket } from "../socket.ts";
+import { useSocket } from "../socket.ts";
 import { SendHorizonal } from "lucide-react";
 import { UserContext } from "../context/UserContext.ts";
 
 export default function SendMessage({ roomId }: { roomId: string }) {
     const { user } = useContext(UserContext);
     const [message, setMessage] = useState("");
-
+    const socket = useSocket();
     console.log("user");
     console.log(user);
     const handleSubmit = (e: React.FormEvent) => {

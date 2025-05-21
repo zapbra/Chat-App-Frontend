@@ -19,3 +19,19 @@ export interface Message {
     sender_id: string;
     username: string;
 }
+
+export interface DbMessage {
+    id: number;
+    senderId: number;
+    roomId: number;
+    message: string;
+    updated_at: string;
+    created_at: string;
+    deleted_at: string | null;
+}
+
+export interface MessageResponse {
+    message: string;
+    liked: boolean;
+    likeId: number;
+}
