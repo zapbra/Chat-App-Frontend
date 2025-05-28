@@ -79,10 +79,10 @@ export type FetchMethod = "GET" | "POST" | "PUT" | "DELETE";
 export async function fetchWithAuth<T = unknown>(
     url: string,
     method: FetchMethod,
-    body?: Record<string, any>,
+    body?: object,
     headers?: HeadersInit
 ): Promise<
-    | { success: true; data: T}
+    | { success: true; data: T }
     | { success: false; error: string; status?: number; redirect?: string }
 > {
     try {
@@ -94,7 +94,6 @@ export async function fetchWithAuth<T = unknown>(
                 redirect: "/sign-in",
             };
         }
-
         const response = await fetch(`${URL}/${url}`, {
             method: method,
             headers: {
@@ -124,7 +123,10 @@ export async function fetchWithAuth<T = unknown>(
                     throw new Error("Unauthorized");
                 }
                 // Successfully requested data after refreshing token
-                return response.json();
+                return {
+                    success: true,
+                    data: await response.json(),
+                };
             } else {
                 return refreshTokenResponse;
             }

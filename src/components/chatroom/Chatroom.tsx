@@ -7,13 +7,18 @@ import React, {
 } from "react";
 import { useSocket } from "../socket";
 import SendMessage from "./SendMessage";
-import { Message } from "../../types";
+import { DbReaction, Message, ReactionMap } from "../../types";
 import { useParams } from "react-router";
 import messages from "../../data/messages.json";
 import DisplayMessage from "./DisplayMessage";
 import { UserContext } from "../context/UserContext";
 import { Link } from "react-router";
 import ChatroomSidebar from "./ChatroomSidebar";
+import {
+    sortReactions,
+    toggleMessageLike,
+    toggleReaction,
+} from "../../services/messages";
 
 const typedMessages: Message[] = messages;
 
@@ -36,6 +41,8 @@ export default function Chatroom() {
     const [members, setMembers] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+
+    const emojiPickerRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         messagesRef.current = messages;
@@ -61,6 +68,18 @@ export default function Chatroom() {
                     return;
                 }
 
+                const messages = data.messages.map((message) => {
+                    if (!message.reactions) return message;
+                    const reactions = sortReactions(
+                        message.reactions,
+                        user.username
+                    );
+                    return {
+                        ...message,
+                        reactions,
+                    };
+                });
+
                 if (oldestMsgId) {
                     lastBeforeIdRef.current = oldestMsgId;
                     const container = chatRef.current;
@@ -74,11 +93,11 @@ export default function Chatroom() {
                                     newScrollHeight - prevScrollHeight;
                             }
                         }, 0);
-                        return [...data.messages, ...prev];
+                        return [...messages, ...prev];
                     });
                 } else {
                     shouldScrollToBottom.current = true;
-                    setMessages(data.messages);
+                    setMessages(messages);
                 }
             } catch (err) {
                 setError(
@@ -129,7 +148,17 @@ export default function Chatroom() {
                     membersRes.json(),
                 ]);
 
-                setMessages(messagesData.messages);
+                const messages = messagesData.messages.map((message) => {
+                    if (!message.reactions) return message;
+                    const reactions = sortReactions(message.reactions);
+                    return {
+                        ...message,
+                        reactions,
+                    };
+                });
+                console.log("messages");
+                console.log(messages);
+                setMessages(messages);
                 setMembers(membersData.members);
                 shouldScrollToBottom.current = true;
             } catch (err) {
@@ -187,6 +216,102 @@ export default function Chatroom() {
         return () => container.removeEventListener("scroll", handleScroll);
     }, [messages, roomId, fetchMessages]);
 
+    const handleToggleLike = async (messageId: number) => {
+        const response = await toggleMessageLike(messageId);
+        // Successfully liked / unliked message in the backend
+        if (response.success) {
+            setMessages((prevMessages) => {
+                return prevMessages.map((message) => {
+                    if (Number(message.id) != messageId) return message;
+
+                    let updatedLikes = message.likes ? [...message.likes] : [];
+                    let updatedCount = Number(message.likes_count);
+
+                    // Actions to take if message was liked
+                    if (response.data.liked) {
+                        // add message to messages list
+                        updatedLikes.push({
+                            id: response.data.likeId,
+                            username: user.username,
+                        });
+                        // update like count
+                        updatedCount = Number(message.likes_count) + 1;
+
+                        // Actions to take if the message was unliked
+                    } else {
+                        if (message.likes) {
+                            // Remove the unliked message from list
+                            updatedLikes = updatedLikes.filter(
+                                (like) => like.username != user.username
+                            );
+                        }
+                        // update like count
+                        updatedCount = Number(message.likes_count) - 1;
+                    }
+                    return {
+                        ...message,
+                        likes: updatedLikes,
+                        likes_count: String(updatedCount),
+                    };
+                });
+            });
+        }
+    };
+
+    const handleToggleReact = async (messageId: number, emoji: string) => {
+        const response = await toggleReaction(messageId, emoji);
+
+        if (response.success) {
+            setMessages((prevMessages) =>
+                prevMessages.map((message) => {
+                    if (Number(message.id) !== messageId) return message;
+
+                    const currentReactions = message.reactions ?? {};
+                    const existingReaction = currentReactions[emoji] ?? {
+                        count: 0,
+                        users: [],
+                        userReacted: false,
+                    };
+
+                    let updatedReaction = { ...existingReaction };
+
+                    if (response.data.reactedTo) {
+                        updatedReaction.count += 1;
+                        updatedReaction.userReacted = true;
+                        updatedReaction.users = [
+                            ...updatedReaction.users,
+                            user.username,
+                        ];
+                    } else {
+                        updatedReaction.count -= 1;
+                        updatedReaction.userReacted = false;
+                        updatedReaction.users = updatedReaction.users.filter(
+                            (u) => u !== user.username
+                        );
+                    }
+
+                    // Remove emoji if no more reactions
+                    const updatedReactions: ReactionMap = {
+                        ...currentReactions,
+                        [emoji]: updatedReaction,
+                    };
+
+                    if (updatedReaction.count <= 0) {
+                        delete updatedReactions[emoji];
+                    }
+
+                    return {
+                        ...message,
+                        reactions:
+                            Object.keys(updatedReactions).length > 0
+                                ? updatedReactions
+                                : null,
+                    };
+                })
+            );
+        }
+    };
+
     if (loading)
         return <div className="loading-indicator">Loading chatroom...</div>;
     if (error) return <div className="error-message">Error: {error}</div>;
@@ -208,10 +333,20 @@ export default function Chatroom() {
                         {messages.map((message) => {
                             return (
                                 <DisplayMessage
+                                    key={message.id}
                                     message={message}
                                     isUserMessage={
                                         message.sender_id == user.userId
                                     }
+                                    // Update SQL query to check if user liked message in future for performance
+                                    liked={
+                                        message.likes?.some(
+                                            (like) =>
+                                                like.username == user.username
+                                        ) ?? false
+                                    }
+                                    toggleLikeMessage={handleToggleLike}
+                                    toggleReactMessage={handleToggleReact}
                                 />
                             );
                         })}

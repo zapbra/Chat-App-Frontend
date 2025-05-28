@@ -10,6 +10,16 @@ export interface ChatRoom {
     updated_at: string;
 }
 
+export interface ReactionInfo {
+    count: number;
+    userReacted: boolean;
+    users: string[];
+}
+
+export interface ReactionMap {
+    [emoji: string]: ReactionInfo;
+}
+
 export interface Message {
     id: string;
     message: string;
@@ -17,6 +27,24 @@ export interface Message {
     updated_at: string;
     deleted_at: string;
     sender_id: string;
+    username: string;
+    likes_count: string;
+    likes: Like[] | null;
+    reactions: ReactionMap | null;
+}
+
+export interface Like {
+    id: number;
+    username: string;
+}
+
+export interface ReactionList {
+    emoji: string;
+    usernames: string[];
+}
+
+export interface DbReaction {
+    emoji: string;
     username: string;
 }
 
@@ -34,4 +62,10 @@ export interface MessageResponse {
     message: string;
     liked: boolean;
     likeId: number;
+}
+
+export interface ReactionResponse {
+    message: string;
+    reactedTo: boolean;
+    reactId: number;
 }

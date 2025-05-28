@@ -1,0 +1,14 @@
+[
+    { "username": "alice", "emoji": "😂" },
+    { "username": "bob", "emoji": "😂" },
+    { "username": "carol", "emoji": "🔥" },
+    { "username": "dave", "emoji": "❤️" },
+    { "username": "eve", "emoji": "😂" },
+    { "username": "frank", "emoji": "👍" },
+    { "username": "grace", "emoji": "🔥" },
+    { "username": "heidi", "emoji": "❤️" },
+    { "username": "ivan", "emoji": "😈" },
+    { "username": "judy", "emoji": "😂" },
+    { "username": "mallory", "emoji": "😎" },
+    { "username": "trent", "emoji": "🔥" }
+]
