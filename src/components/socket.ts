@@ -1,27 +1,28 @@
+// socket.ts
 import { io, Socket } from "socket.io-client";
-import { useContext, useEffect, useRef, useState } from "react";
-import { UserContext } from "./context/UserContext";
 
-export const useSocket = (): Socket | null => {
-    const { user } = useContext(UserContext);
-    const apiUrl = import.meta.env.VITE_SOCKET_URL;
-    const socketRef = useRef<Socket | null>(null);
+const apiUrl = import.meta.env.VITE_SOCKET_URL;
 
-    useEffect(() => {
-        if (user?.userId) {
-            // Only connect when user exists
-            const username = user.username || `guest-${crypto.randomUUID()}`;
+let socket: Socket | null = null;
 
-            socketRef.current = io(apiUrl, {
-                auth: { username, userId: user.userId },
-                autoConnect: true,
-            });
+export const initSocket = (username: string, userId: string): Socket => {
+    if (!socket) {
+        socket = io(apiUrl, {
+            auth: { username, userId },
+            autoConnect: true,
+            transports: ["websocket"],
+        });
 
-            return () => {
-                socketRef.current?.disconnect();
-            };
-        }
-    }, [user?.userId]); // Reconnect only if userId changes
+        socket.on("connect", () => {
+            console.log("✅ Socket connected:", socket!.id);
+        });
 
-    return socketRef.current;
+        socket.on("connect_error", (err) => {
+            console.error("❌ Socket connection error:", err);
+        });
+    }
+
+    return socket;
 };
+
+export const getSocket = (): Socket | null => socket;

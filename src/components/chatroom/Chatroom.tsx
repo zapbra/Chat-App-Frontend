@@ -5,7 +5,7 @@ import React, {
     useRef,
     useCallback,
 } from "react";
-import { useSocket } from "../socket";
+import { getSocket, initSocket } from "../socket";
 import SendMessage from "./SendMessage";
 import { DbReaction, Message, ReactionMap } from "../../types";
 import { useParams } from "react-router";
@@ -19,6 +19,8 @@ import {
     toggleMessageLike,
     toggleReaction,
 } from "../../services/messages";
+import { Socket } from "socket.io-client";
+import Reply from "./Reply";
 
 const typedMessages: Message[] = messages;
 
@@ -32,7 +34,7 @@ export default function Chatroom() {
     const roomId = Number(params.roomId!);
     const [messages, setMessages] = useState<Message[]>([]);
     const messagesRef = useRef(messages);
-    const socket = useSocket();
+    const [socket, setSocket] = useState<Socket | null>(null);
     const [connected, setConnected] = useState(false);
     const chatRef = useRef<HTMLDivElement>(null);
     const shouldScrollToBottom = useRef(false);
@@ -41,8 +43,21 @@ export default function Chatroom() {
     const [members, setMembers] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-
+    const [replying, setReplying] = useState(true);
+    const [replyMessage, setReplyMessage] = useState<Message | null>(null);
     const emojiPickerRef = useRef<HTMLDivElement>(null);
+
+    console.log("replying");
+    console.log(replying);
+
+    console.log("reply message");
+    console.log(replyMessage);
+    useEffect(() => {
+        if (!user?.loggedIn || socket) return;
+
+        const initializedSocket = initSocket(user.username, user.userId);
+        setSocket(initializedSocket);
+    }, [user, socket]);
 
     useEffect(() => {
         messagesRef.current = messages;
@@ -113,23 +128,10 @@ export default function Chatroom() {
 
     // Socket connection handlers
     useEffect(() => {
-        if (!socket) return;
+        console.log("first line", { socket, user });
 
-        const handleConnect = () => setConnected(true);
-        const handleDisconnect = () => setConnected(false);
-
-        socket.on("connect", handleConnect);
-        socket.on("disconnect", handleDisconnect);
-
-        return () => {
-            socket.off("connect", handleConnect);
-            socket.off("disconnect", handleDisconnect);
-        };
-    }, [socket]);
-
-    // Room initialization and cleanup
-    useEffect(() => {
-        if (!socket || !user) return;
+        if (!socket || !user?.loggedIn) return;
+        console.log("second line");
         const loadInitialData = async () => {
             try {
                 setLoading(true);
@@ -150,14 +152,16 @@ export default function Chatroom() {
 
                 const messages = messagesData.messages.map((message) => {
                     if (!message.reactions) return message;
-                    const reactions = sortReactions(message.reactions);
-                    return {
-                        ...message,
-                        reactions,
-                    };
+                    const reactions = sortReactions(
+                        message.reactions,
+                        user.username
+                    );
+                    return { ...message, reactions };
                 });
+
                 console.log("messages");
                 console.log(messages);
+                setReplyMessage(messages[0]);
                 setMessages(messages);
                 setMembers(membersData.members);
                 shouldScrollToBottom.current = true;
@@ -172,6 +176,7 @@ export default function Chatroom() {
         };
 
         const handleMessage = (msg: Message) => {
+            console.log("📨 handleMessage called", msg);
             setMessages((prev) => {
                 shouldScrollToBottom.current = true;
                 return [...prev, msg];
@@ -182,15 +187,40 @@ export default function Chatroom() {
             setMembers(newMembers);
         };
 
+        const handleConnect = () => {
+            console.log("🔁 Connected — joining room", roomId);
+            socket.emit("join room", String(roomId));
+        };
+
         loadInitialData();
-        socket.emit("join room", roomId);
+
+        // Join room only after socket connects
+        if (socket.connected) {
+            socket.emit("join room", roomId);
+        } else {
+            socket.on("connect", handleConnect);
+        }
+
         socket.on("chat message", handleMessage);
         socket.on("members:updated", handleMemberUpdate);
 
+        const handleBeforeUnload = () => {
+            // Prevent leave room on refresh
+            console.log("Preventing leave room on refresh");
+            window.removeEventListener("beforeunload", handleBeforeUnload);
+        };
+
+        window.addEventListener("beforeunload", handleBeforeUnload);
+
         return () => {
-            socket.emit("leave room", roomId);
+            if (!window.location.href.includes(`/chatroom/${roomId}`)) {
+                console.log("🏃 Leaving room", roomId);
+                socket.emit("leave room", String(roomId));
+            }
             socket.off("chat message", handleMessage);
             socket.off("members:updated", handleMemberUpdate);
+            socket.off("connect", handleConnect);
+            window.removeEventListener("beforeunload", handleBeforeUnload);
         };
     }, [socket, roomId, user]);
 
@@ -312,6 +342,11 @@ export default function Chatroom() {
         }
     };
 
+    const cancelReply = () => {
+        setReplying(false);
+        setReplyMessage(null);
+    };
+
     if (loading)
         return <div className="loading-indicator">Loading chatroom...</div>;
     if (error) return <div className="error-message">Error: {error}</div>;
@@ -353,7 +388,18 @@ export default function Chatroom() {
                     </div>
                     <div className="px-10">
                         {user.loggedIn ? (
-                            <SendMessage roomId={roomId} />
+                            <>
+                                {replying && replyMessage != null && (
+                                    <>
+                                        <Reply
+                                            username={replyMessage.username}
+                                            message={replyMessage.message}
+                                            cancelReply={cancelReply}
+                                        />
+                                    </>
+                                )}
+                                <SendMessage roomId={roomId} />
+                            </>
                         ) : (
                             <div className="flex justify-end bg-sky-500 rounded-lg px-2 py-2">
                                 <Link to="/sign-up">

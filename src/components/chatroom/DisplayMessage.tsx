@@ -4,7 +4,7 @@ import { stringToReadableDate } from "../../utils/utils";
 import EmojiDisplay from "./EmojiDisplay";
 import { useEffect, useRef, useState } from "react";
 import EmojiPicker from "emoji-picker-react";
-import LikerList from "./LikerList";
+import LikerList from "./LikerListPortal";
 
 type DisplayMessageProps = {
     message: Message;

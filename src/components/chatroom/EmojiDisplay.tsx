@@ -1,5 +1,6 @@
 import { useState } from "react";
-import LikerList from "./LikerList";
+import LikerList from "./LikerListPortal";
+import LikerListPortal from "./LikerListPortal";
 
 type EmojiDisplayProps = {
     icon: string;
@@ -19,40 +20,31 @@ export default function EmojiDisplay({
     onDislike,
 }: EmojiDisplayProps) {
     const [showLikers, setShowLikers] = useState(false);
-
+    const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
+    let mainClass =
+        "cursor-pointer rounded-4xl px-3 py-1 inline-flex items-center gap-2 relative";
+    if (liked) {
+        mainClass += " bg-emerald-200/50";
+    } else {
+        mainClass += " bg-slate-50/50";
+    }
     return (
         <div
-            className="bg-slate-50/50 cursor-pointer rounded-4xl px-3 py-1 inline-flex items-center gap-2 relative"
-            onMouseEnter={() => setShowLikers(true)}
+            className={mainClass}
+            onMouseEnter={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                setTooltipPosition({ x: rect.left, y: rect.top + rect.height });
+                setShowLikers(true);
+            }}
             onMouseLeave={() => setShowLikers(false)}
         >
             <p>{icon}</p>
             <p className="text-sm ">{likeCount}</p>
             {showLikers && (
-                <LikerList
-                    likers={[
-                        "Frank",
-                        "Angela",
-                        "Antonio",
-                        "Frank",
-                        "Angela",
-                        "Antonio",
-                        "Frank",
-                        "Angela",
-                        "Antonio",
-                        "Frank",
-                        "Angela",
-                        "Antonio",
-                        "Frank",
-                        "Angela",
-                        "Antonio",
-                        "Frank",
-                        "Angela",
-                        "Antonio",
-                        "Frank",
-                        "Angela",
-                        "Antonio",
-                    ]}
+                <LikerListPortal
+                    likers={likedBy}
+                    x={tooltipPosition.x}
+                    y={tooltipPosition.y}
                 />
             )}
         </div>
