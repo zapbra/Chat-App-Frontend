@@ -1,0 +1,32 @@
+[
+    {
+        "name": "Room 1",
+        "mentions": 0,
+        "newMessages": 347,
+        "totalMessages": 1047
+    },
+    {
+        "name": "Frontend Devs",
+        "mentions": 5,
+        "newMessages": 112,
+        "totalMessages": 893
+    },
+    {
+        "name": "Design Team",
+        "mentions": 2,
+        "newMessages": 48,
+        "totalMessages": 432
+    },
+    {
+        "name": "Marketing",
+        "mentions": 0,
+        "newMessages": 3,
+        "totalMessages": 102
+    },
+    {
+        "name": "Support",
+        "mentions": 12,
+        "newMessages": 214,
+        "totalMessages": 1740
+    }
+]

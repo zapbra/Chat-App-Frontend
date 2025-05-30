@@ -1,0 +1,42 @@
+[
+    {
+        "username": "alice99",
+        "message": "Hey, just checking in about our meeting tomorrow.",
+        "isRead": false,
+        "link": "/messages/1",
+        "sent_at": "2025-05-29T15:45:00Z",
+        "chatroom": "general"
+    },
+    {
+        "username": "bob_the_dev",
+        "message": "The pull request has been merged. Great job!",
+        "isRead": true,
+        "link": "/messages/2",
+        "sent_at": "2025-05-28T10:20:00Z",
+        "chatroom": null
+    },
+    {
+        "username": "charlie.ai",
+        "message": "Can you review the latest design mockups?",
+        "isRead": false,
+        "link": "/messages/3",
+        "sent_at": "2025-05-29T08:30:00Z",
+        "chatroom": "design-team"
+    },
+    {
+        "username": "dana87",
+        "message": "Happy birthday! 🎉",
+        "isRead": true,
+        "link": "/messages/4",
+        "sent_at": "2025-05-27T21:00:00Z",
+        "chatroom": null
+    },
+    {
+        "username": "echo_bot",
+        "message": "Reminder: Your subscription renews in 3 days.",
+        "isRead": false,
+        "link": "/messages/5",
+        "sent_at": "2025-05-29T06:00:00Z",
+        "chatroom": "alerts"
+    }
+]

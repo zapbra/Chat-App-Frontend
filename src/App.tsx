@@ -6,6 +6,7 @@ import Layout from "./components/Layout";
 import { AuthProvider } from "./components/context/AuthProvider";
 import SignUp from "./pages/Signup";
 import SignIn from "./pages/SignIn";
+import Account from "./pages/Account";
 
 function App() {
     return (
@@ -21,6 +22,8 @@ function App() {
                         <Route path="sign-up" element={<SignUp />} />
 
                         <Route path="sign-in" element={<SignIn />} />
+
+                        <Route path="account" element={<Account />} />
                     </Route>
                 </Routes>
             </BrowserRouter>
