@@ -5,10 +5,14 @@ const apiUrl = import.meta.env.VITE_SOCKET_URL;
 
 let socket: Socket | null = null;
 
-export const initSocket = (username: string, userId: string): Socket => {
+export const initSocket = (
+    username: string,
+    userId: string,
+    token: string
+): Socket => {
     if (!socket) {
         socket = io(apiUrl, {
-            auth: { username, userId },
+            auth: { username, userId, token },
             autoConnect: true,
             transports: ["websocket"],
         });

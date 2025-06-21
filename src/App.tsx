@@ -7,6 +7,10 @@ import { AuthProvider } from "./components/context/AuthProvider";
 import SignUp from "./pages/Signup";
 import SignIn from "./pages/SignIn";
 import Account from "./pages/Account";
+import ProfileLayout from "./components/profile/ProfileLayout";
+import DirectMessages from "./pages/profile/DirectMessages";
+import UserPage from "./pages/user/UserPage";
+import Following from "./pages/profile/Following";
 
 function App() {
     return (
@@ -24,6 +28,16 @@ function App() {
                         <Route path="sign-in" element={<SignIn />} />
 
                         <Route path="account" element={<Account />} />
+
+                        <Route path="/profile" element={<ProfileLayout />}>
+                            <Route
+                                path="messages"
+                                element={<DirectMessages />}
+                            />
+                            <Route path="following" element={<Following />} />
+                        </Route>
+
+                        <Route path="/user/:userId" element={<UserPage />} />
                     </Route>
                 </Routes>
             </BrowserRouter>

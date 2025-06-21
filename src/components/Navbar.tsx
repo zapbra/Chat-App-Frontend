@@ -2,6 +2,7 @@ import { useContext } from "react";
 import { UserContext } from "./context/UserContext";
 import { Link } from "react-router";
 import { useNavigate } from "react-router";
+import SearchBar from "./search/SearchBar";
 export default function Navbar() {
     const { user, setUser, resetUserContext } = useContext(UserContext);
     const navigate = useNavigate();
@@ -24,6 +25,7 @@ export default function Navbar() {
                         </div>
                     </Link>
                 </div>
+                <SearchBar />
                 <div className="flex gap-4">
                     {user?.loggedIn ? (
                         <>

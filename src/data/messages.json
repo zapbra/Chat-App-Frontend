@@ -1,22 +1,103 @@
 [
     {
-        "sender": "alice",
-        "message": "Hey! Are we still meeting later?",
-        "sent_at": "2025-04-21T15:30:00.000Z"
+        "id": "4",
+        "message": "Don't forget to submit your timesheet by EOD.",
+        "created_at": "2025-06-09T12:15:00Z",
+        "updated_at": "2025-06-09T12:15:00Z",
+        "deleted_at": "",
+        "sender_id": "user_3",
+        "username": "kellydev",
+        "likes_count": "3",
+        "likes": [
+            { "id": 4, "username": "alice99" },
+            { "id": 5, "username": "charlie.ai" },
+            { "id": 6, "username": "emjay" }
+        ],
+        "reactions": {
+            "✅": {
+                "count": 2,
+                "users": ["alice99", "emjay"],
+                "userReacted": false
+            }
+        }
     },
     {
-        "sender": "bob",
-        "message": "Yeah, I'll be there at 5!",
-        "sent_at": "2025-04-21T15:32:10.000Z"
+        "id": "5",
+        "message": "I'll be offline from 3-5pm for a dentist appointment.",
+        "created_at": "2025-06-09T11:50:00Z",
+        "updated_at": "2025-06-09T11:50:00Z",
+        "deleted_at": "",
+        "sender_id": "user_4",
+        "username": "emjay",
+        "likes_count": "1",
+        "likes": [{ "id": 7, "username": "charlie.ai" }],
+        "reactions": {
+            "🦷": {
+                "count": 1,
+                "users": ["charlie.ai"],
+                "userReacted": false
+            }
+        }
     },
     {
-        "sender": "charlie",
-        "message": "Don't forget to bring the documents.",
-        "sent_at": "2025-04-21T15:33:45.000Z"
+        "id": "6",
+        "message": "The new dashboard UI looks amazing — great work!",
+        "created_at": "2025-06-08T17:10:00Z",
+        "updated_at": "2025-06-08T17:10:00Z",
+        "deleted_at": "",
+        "sender_id": "user_2",
+        "username": "charlie.ai",
+        "likes_count": "4",
+        "likes": [
+            { "id": 8, "username": "alice99" },
+            { "id": 9, "username": "kellydev" },
+            { "id": 10, "username": "emjay" },
+            { "id": 11, "username": "nova" }
+        ],
+        "reactions": {
+            "👏": {
+                "count": 3,
+                "users": ["kellydev", "emjay", "nova"],
+                "userReacted": true
+            },
+            "🔥": {
+                "count": 1,
+                "users": ["alice99"],
+                "userReacted": false
+            }
+        }
     },
     {
-        "sender": "alice",
-        "message": "Got it, thanks!",
-        "sent_at": "2025-04-21T15:34:12.000Z"
+        "id": "7",
+        "message": "Does anyone have experience with GraphQL pagination?",
+        "created_at": "2025-06-08T14:35:00Z",
+        "updated_at": "2025-06-08T14:35:00Z",
+        "deleted_at": "",
+        "sender_id": "user_5",
+        "username": "nova",
+        "likes_count": "0",
+        "likes": [],
+        "reactions": null
+    },
+    {
+        "id": "8",
+        "message": "Lunch break anyone? Thinking shawarma.",
+        "created_at": "2025-06-08T12:00:00Z",
+        "updated_at": "2025-06-08T12:00:00Z",
+        "deleted_at": "",
+        "sender_id": "user_1",
+        "username": "alice99",
+        "likes_count": "2",
+        "likes": [
+            { "id": 12, "username": "kellydev" },
+            { "id": 13, "username": "nova" }
+        ],
+        "reactions": {
+            "🍽️": {
+                "count": 2,
+                "users": ["kellydev", "nova"],
+                "userReacted": false
+            }
+        }
     }
 ]

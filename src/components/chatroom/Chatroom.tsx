@@ -35,7 +35,6 @@ export default function Chatroom() {
     const [messages, setMessages] = useState<Message[]>([]);
     const messagesRef = useRef(messages);
     const [socket, setSocket] = useState<Socket | null>(null);
-    const [connected, setConnected] = useState(false);
     const chatRef = useRef<HTMLDivElement>(null);
     const shouldScrollToBottom = useRef(false);
     const lastBeforeIdRef = useRef<number | null>(null); // prevent repeat fetch
@@ -45,17 +44,26 @@ export default function Chatroom() {
     const [error, setError] = useState<string | null>(null);
     const [replying, setReplying] = useState(true);
     const [replyMessage, setReplyMessage] = useState<Message | null>(null);
-    const emojiPickerRef = useRef<HTMLDivElement>(null);
 
-    console.log("replying");
-    console.log(replying);
-
-    console.log("reply message");
-    console.log(replyMessage);
+    const sendChatMessage = (message: string) => {
+        if (!socket) {
+            // Might want to update this to handle errors more gracefully?
+            console.error("Socket not initialized.");
+            return;
+        }
+        socket.emit("chat message", {
+            roomId: String(roomId),
+            senderId: user.userId,
+            username: user.username,
+            message,
+        });
+    };
     useEffect(() => {
         if (!user?.loggedIn || socket) return;
 
-        const initializedSocket = initSocket(user.username, user.userId);
+        const token = localStorage.getItem("accessToken");
+        if (!token) return;
+        const initializedSocket = initSocket(user.username, user.userId, token);
         setSocket(initializedSocket);
     }, [user, socket]);
 
@@ -128,10 +136,7 @@ export default function Chatroom() {
 
     // Socket connection handlers
     useEffect(() => {
-        console.log("first line", { socket, user });
-
         if (!socket || !user?.loggedIn) return;
-        console.log("second line");
         const loadInitialData = async () => {
             try {
                 setLoading(true);
@@ -176,7 +181,6 @@ export default function Chatroom() {
         };
 
         const handleMessage = (msg: Message) => {
-            console.log("📨 handleMessage called", msg);
             setMessages((prev) => {
                 shouldScrollToBottom.current = true;
                 return [...prev, msg];
@@ -398,7 +402,9 @@ export default function Chatroom() {
                                         />
                                     </>
                                 )}
-                                <SendMessage roomId={roomId} />
+                                <SendMessage
+                                    sendChatMessage={sendChatMessage}
+                                />
                             </>
                         ) : (
                             <div className="flex justify-end bg-sky-500 rounded-lg px-2 py-2">

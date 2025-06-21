@@ -4,22 +4,15 @@ import { SendHorizonal } from "lucide-react";
 import { UserContext } from "../context/UserContext.ts";
 import { Socket } from "socket.io-client";
 
-export default function SendMessage({ roomId }: { roomId: string }) {
-    const { user } = useContext(UserContext);
+export default function SendMessage({
+    sendChatMessage,
+}: {
+    sendChatMessage: (message: string) => void;
+}) {
     const [message, setMessage] = useState("");
-    const socket = getSocket();
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (!socket) {
-            console.error("Socket not initialized.");
-            return;
-        }
-        socket.emit("chat message", {
-            roomId,
-            senderId: user.userId,
-            username: user.username,
-            message,
-        });
+        sendChatMessage(message);
         setMessage("");
     };
 
