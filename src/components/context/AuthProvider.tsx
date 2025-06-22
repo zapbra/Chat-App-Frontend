@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { UserContext } from "./UserContext";
 import { UserAuth } from "../../types";
 import { refreshToken } from "../../services/auth";
+import { initSocket } from "../socket";
 
 const URL = import.meta.env.VITE_API_BASE_URL;
 const initialContext: UserAuth = {
@@ -42,6 +43,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                     username: data.username,
                     userId: data.id,
                 });
+                initSocket(data.username, data.id, token);
             }
         };
         checkAuth();

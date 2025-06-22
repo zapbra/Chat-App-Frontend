@@ -34,38 +34,54 @@ export default function Chatroom() {
     const roomId = Number(params.roomId!);
     const [messages, setMessages] = useState<Message[]>([]);
     const messagesRef = useRef(messages);
-    const [socket, setSocket] = useState<Socket | null>(null);
     const chatRef = useRef<HTMLDivElement>(null);
+    const [socket, setSocket] = useState<Socket | null>(null);
     const shouldScrollToBottom = useRef(false);
     const lastBeforeIdRef = useRef<number | null>(null); // prevent repeat fetch
     const [hasMore, setHasMore] = useState(true);
     const [members, setMembers] = useState<string[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [replying, setReplying] = useState(true);
+    const [replying, setReplying] = useState(false);
     const [replyMessage, setReplyMessage] = useState<Message | null>(null);
 
+    useEffect(() => {
+        const s = getSocket();
+        if (s) {
+            setSocket(s);
+        } else {
+            const interval = setInterval(() => {
+                const maybeSocket = getSocket();
+                if (maybeSocket) {
+                    setSocket(maybeSocket);
+                    clearInterval(interval);
+                }
+            }, 100); // poll every 100ms
+            return () => clearInterval(interval);
+        }
+    }, []);
+
     const sendChatMessage = (message: string) => {
+        const socket = getSocket();
         if (!socket) {
             // Might want to update this to handle errors more gracefully?
             console.error("Socket not initialized.");
             return;
         }
+        // send message to chatroom and store in db
         socket.emit("chat message", {
             roomId: String(roomId),
             senderId: user.userId,
             username: user.username,
             message,
+            replyId: replyMessage != null ? replyMessage.id : null,
         });
+        // reset reply state to hide reply section
+        if (replyMessage != null) {
+            setReplyMessage(null);
+            setReplying(false);
+        }
     };
-    useEffect(() => {
-        if (!user?.loggedIn || socket) return;
-
-        const token = localStorage.getItem("accessToken");
-        if (!token) return;
-        const initializedSocket = initSocket(user.username, user.userId, token);
-        setSocket(initializedSocket);
-    }, [user, socket]);
 
     useEffect(() => {
         messagesRef.current = messages;
@@ -136,7 +152,11 @@ export default function Chatroom() {
 
     // Socket connection handlers
     useEffect(() => {
-        if (!socket || !user?.loggedIn) return;
+        if (!user.loggedIn) return;
+
+        const token = localStorage.getItem("accessToken");
+        if (!token) return;
+        if (!socket) return;
         const loadInitialData = async () => {
             try {
                 setLoading(true);
@@ -166,7 +186,6 @@ export default function Chatroom() {
 
                 console.log("messages");
                 console.log(messages);
-                setReplyMessage(messages[0]);
                 setMessages(messages);
                 setMembers(membersData.members);
                 shouldScrollToBottom.current = true;
@@ -181,6 +200,9 @@ export default function Chatroom() {
         };
 
         const handleMessage = (msg: Message) => {
+            console.log("handling message");
+            console.log("msg");
+            console.log(msg);
             setMessages((prev) => {
                 shouldScrollToBottom.current = true;
                 return [...prev, msg];
@@ -198,11 +220,11 @@ export default function Chatroom() {
 
         loadInitialData();
 
+        socket.on("connect", handleConnect);
+
         // Join room only after socket connects
         if (socket.connected) {
-            socket.emit("join room", roomId);
-        } else {
-            socket.on("connect", handleConnect);
+            handleConnect();
         }
 
         socket.on("chat message", handleMessage);
@@ -226,7 +248,7 @@ export default function Chatroom() {
             socket.off("connect", handleConnect);
             window.removeEventListener("beforeunload", handleBeforeUnload);
         };
-    }, [socket, roomId, user]);
+    }, [roomId, user, socket]);
 
     // Auto-scroll to bottom when new messages arrive
     useEffect(() => {
@@ -242,6 +264,8 @@ export default function Chatroom() {
 
         const handleScroll = () => {
             if (container.scrollTop === 0 && messages.length > 0) {
+                console.log("about to fetch messages... id...");
+                console.log(messages[0].id);
                 fetchMessages(roomId, Number(messages[0].id));
             }
         };
@@ -351,6 +375,11 @@ export default function Chatroom() {
         setReplyMessage(null);
     };
 
+    const replyToMessage = (msg: Message) => {
+        setReplying(true);
+        setReplyMessage(msg);
+    };
+
     if (loading)
         return <div className="loading-indicator">Loading chatroom...</div>;
     if (error) return <div className="error-message">Error: {error}</div>;
@@ -362,9 +391,10 @@ export default function Chatroom() {
                     Back to Chat Rooms
                 </button>
             </Link>
+
             <div className="flex w-full justify-center">
                 {/** Main Chat */}
-                <div className="max-w-[800px]  bg-sky-800 rounded-tl-lg rounded-bl-lg py-3 ">
+                <div className="max-w-[800px] w-full  bg-sky-800 rounded-tl-lg rounded-bl-lg py-3 ">
                     <div
                         className="h-[75vh] overflow-y-auto px-10"
                         ref={chatRef}
@@ -386,6 +416,7 @@ export default function Chatroom() {
                                     }
                                     toggleLikeMessage={handleToggleLike}
                                     toggleReactMessage={handleToggleReact}
+                                    replyToMessage={replyToMessage}
                                 />
                             );
                         })}

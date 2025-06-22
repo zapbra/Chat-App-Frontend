@@ -12,6 +12,7 @@ type DisplayMessageProps = {
     liked: boolean;
     toggleLikeMessage: (messageId: number) => void;
     toggleReactMessage: (messageId: number, emoji: string) => void;
+    replyToMessage: (msg: Message) => void;
 };
 
 export default function DisplayMessage({
@@ -20,6 +21,7 @@ export default function DisplayMessage({
     liked,
     toggleLikeMessage,
     toggleReactMessage,
+    replyToMessage,
 }: DisplayMessageProps) {
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     let baseClass = " w-fit mb-2 relative";
@@ -79,6 +81,17 @@ export default function DisplayMessage({
                 ref={pickerRef}
                 className="bg-slate-50 px-6 py-2 rounded-2xl mb-2"
             >
+                {message.replying_to_id != null && (
+                    <div className="bg-slate-200 rounded px-2 py-1 mb-2">
+                        <p className="text-slate-400">Replying to</p>
+                        <p className="text-sky-500 font-bold">
+                            {message.replying_to_username}
+                        </p>
+                        <p className="text-slate-400">
+                            {message.replying_to_message}
+                        </p>
+                    </div>
+                )}
                 {showEmojiPicker && (
                     <div
                         className="fixed z-50 bottom-full"
@@ -122,7 +135,10 @@ export default function DisplayMessage({
                         >
                             React
                         </span>
-                        <span className="text-slate-500 text-sm hover:underline cursor-pointer">
+                        <span
+                            onClick={() => replyToMessage(message)}
+                            className="text-slate-500 text-sm hover:underline cursor-pointer"
+                        >
                             Reply
                         </span>
                     </div>

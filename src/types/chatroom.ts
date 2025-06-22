@@ -31,6 +31,10 @@ export interface Message {
     likes_count: string;
     likes: Like[] | null;
     reactions: ReactionMap | null;
+    replying_to_created_at: string | null;
+    replying_to_id: number | null;
+    replying_to_message: string | null;
+    replying_to_username: string | null;
 }
 
 export interface Like {
