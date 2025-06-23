@@ -5,12 +5,17 @@ import DirectMessageDisplay from "../../components/profile/DirectMessageDisplay"
 import DisplayMessage from "../../components/chatroom/DisplayMessage";
 import TestMessages from "../../data/messages.json";
 import SendMessage from "../../components/chatroom/SendMessage";
-import { DbDirectMessage, DirectMessage } from "../../types/directMessages";
+import {
+    DbDirectMessage,
+    DirectMessage,
+    UserDmRead,
+} from "../../types/directMessages";
 import { fetchWithAuth } from "../../services/auth";
 import { Follower, Message } from "../../types";
 import NewMessagePopup from "../../components/profile/NewMessagePopup";
 import { Socket } from "socket.io-client";
 import { initSocket } from "../../components/socket";
+import { useParams } from "react-router";
 
 const URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -22,6 +27,7 @@ type ActiveChatDetails = {
 
 export default function DirectMessages() {
     const { user } = useContext(UserContext);
+    const { userId } = useParams();
     const [messages, setMessages] = useState<DirectMessage[]>([]);
     const [newMessagePopupOpen, setNewMessagePopupOpen] = useState(true);
     const [currentChatMessages, setCurrentChatMessages] = useState<
@@ -34,9 +40,27 @@ export default function DirectMessages() {
 
     const [socket, setSocket] = useState<Socket | null>(null);
 
+    const [userDmRead, setUserDmRead] = useState<UserDmRead | null>(null);
+    const [otherUserDmRead, setOtherUserDmRead] = useState<UserDmRead | null>(
+        null
+    );
     console.log("messages");
     console.log(messages);
 
+    // Load / create a dm thread based on optional userId param
+    useEffect(() => {
+        console.log("starting func");
+        if (!userId) return;
+        const fetchDataAndCreateThread = async () => {
+            const response = await fetch(`${URL}/users/${userId}`);
+            // Might want to handle edge case where provided user doesn't exist, but it's not a big deal
+            if (response.ok) {
+                const data = await response.json();
+                createNewMessageThread(Number(userId), data.user.username);
+            }
+        };
+        fetchDataAndCreateThread();
+    }, [userId]);
     const sendChatMessage = (message: string) => {
         // Might want to handle this errors more gracefully in the future, instead of doing console.error
         if (!socket) {
@@ -145,31 +169,36 @@ export default function DirectMessages() {
         fetchData();
     }, [user]);
 
-    // Going to have to update this to open a thread if it already exists soon
-    const createNewMessageThread = async (userId: number, username: string) => {
+    const createNewMessageThread = async (
+        otherUserId: number,
+        username: string
+    ) => {
         setNewMessagePopupOpen(false);
+        // Check if thread between users exists
         const response = await fetchWithAuth<{
             threadId: number;
             messages: DbDirectMessage[];
-        }>(`dms/thread/${userId}`, "GET");
+        }>(`dms/thread/${otherUserId}`, "GET");
+        // Thread does exist, so populate local data with thread information
         if (response.success) {
             const { threadId, messages } = response.data;
             setCurrentChatMessages(messages);
             setActiveChatDetails({
-                receiverId: userId,
+                receiverId: otherUserId,
                 receiverUsername: username,
                 threadId: threadId,
             });
+            // Thread does not exist, create thread
         } else {
             const response = await fetchWithAuth<{ threadId: number }>(
-                `dms/thread/${userId}`,
+                `dms/thread/${otherUserId}`,
                 "POST"
             );
-
+            // Thread successfully created, populate local data with thread infromation
             if (response.success) {
                 const { threadId } = response.data;
                 setActiveChatDetails({
-                    receiverId: userId,
+                    receiverId: otherUserId,
                     receiverUsername: username,
                     threadId: threadId,
                 });
@@ -179,11 +208,12 @@ export default function DirectMessages() {
                 console.log("Failed to create thread");
                 console.log(response);
                 setActiveChatDetails({
-                    receiverId: userId,
+                    receiverId: otherUserId,
                     receiverUsername: username,
                     threadId: null,
                 });
             }
+            // Set messages to empty, because a new thread will always have no messages
             setCurrentChatMessages([]);
         }
     };
@@ -192,14 +222,28 @@ export default function DirectMessages() {
      * Retrieves a list of messages when a direct message is opened and
      * populates the screen with the messages
      */
-    const openDirectMessage = async (otherUserId: number) => {
+    const openDirectMessage = async (
+        otherUserId: number,
+        username: string,
+        threadId: number
+    ) => {
         console.log("opening direct message");
         const response = await fetchWithAuth<{
             messages: DbDirectMessage[];
+            threadId: number;
+            userDmRead: UserDmRead;
+            otherUserDmRead: UserDmRead;
         }>(`dms/thread/${otherUserId}`, "GET");
         if (response.success) {
+            console.log("open direct messages response");
+            console.log(response.data);
             setNewMessagePopupOpen(false);
             setCurrentChatMessages(response.data.messages);
+            setActiveChatDetails({
+                receiverId: otherUserId,
+                receiverUsername: username,
+                threadId: threadId,
+            });
         }
         // Might want to handle case where messages aren't found
         // It should be found though, so unlikely
@@ -234,6 +278,7 @@ export default function DirectMessages() {
                                         ? message.senderId
                                         : message.receiverId
                                 }
+                                threadId={message.threadId}
                                 openDirectMessage={openDirectMessage}
                             />
                         );

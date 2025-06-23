@@ -32,6 +32,7 @@ export default function Chatroom() {
     const { user } = useContext(UserContext);
     const params = useParams();
     const roomId = Number(params.roomId!);
+    const [roomName, setRoomName] = useState("");
     const [messages, setMessages] = useState<Message[]>([]);
     const messagesRef = useRef(messages);
     const chatRef = useRef<HTMLDivElement>(null);
@@ -174,7 +175,7 @@ export default function Chatroom() {
                     messagesRes.json(),
                     membersRes.json(),
                 ]);
-
+                setRoomName(messagesData.room.name);
                 const messages = messagesData.messages.map((message) => {
                     if (!message.reactions) return message;
                     const reactions = sortReactions(
@@ -386,12 +387,15 @@ export default function Chatroom() {
 
     return (
         <div className=" max-w-[1440px] mx-auto px-6">
-            <Link to="/">
-                <button className="bg-sky-500 text-white px-4 py-2 rounded cursor-pointer hover:bg-sky-700 transition mb-6">
-                    Back to Chat Rooms
-                </button>
-            </Link>
-
+            <div className="flex justify-between mb-4">
+                <Link to="/">
+                    <button className="bg-sky-500 text-white px-4 py-2 rounded cursor-pointer hover:bg-sky-700 transition mb-6">
+                        Back to Chat Rooms
+                    </button>
+                </Link>
+                <h1 className="text-6xl">{roomName}</h1>
+                <div></div>
+            </div>
             <div className="flex w-full justify-center">
                 {/** Main Chat */}
                 <div className="max-w-[800px] w-full  bg-sky-800 rounded-tl-lg rounded-bl-lg py-3 ">

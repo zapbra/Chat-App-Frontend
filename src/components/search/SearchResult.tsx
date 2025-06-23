@@ -1,3 +1,5 @@
+import { Link } from "react-router";
+
 const highlightText = (text: string, highlightText: string) => {
     if (!highlightText) return <p>{text}</p>;
     const regex = new RegExp(`(${highlightText})`, "i");
@@ -22,14 +24,18 @@ export default function SearchResult({
     id,
     username,
     search,
+    hideResults,
 }: {
     id: number;
     username: string;
     search: string;
+    hideResults: () => void;
 }) {
     return (
-        <div className="bg-white hover:bg-sky-50 transition px-3 py-2 border-b border-b-slate-500  cursor-pointer">
-            <p>{highlightText(username, search)}</p>
-        </div>
+        <Link to={`/user/${id}`} onClick={hideResults}>
+            <div className="bg-white hover:bg-sky-50 transition px-3 py-2 border-b border-b-slate-500  cursor-pointer">
+                {highlightText(username, search)}
+            </div>
+        </Link>
     );
 }

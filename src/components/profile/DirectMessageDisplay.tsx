@@ -6,7 +6,12 @@ type DirectMessageDisplayProps = {
     isRead: boolean | null;
     sentAt: string;
     otherUserId: number;
-    openDirectMessage: (otherUserId: number) => void;
+    threadId: number;
+    openDirectMessage: (
+        otherUserId: number,
+        username: string,
+        threadId: number
+    ) => void;
 };
 
 export default function DirectMessageDisplay({
@@ -15,6 +20,7 @@ export default function DirectMessageDisplay({
     isRead,
     sentAt,
     otherUserId,
+    threadId,
     openDirectMessage,
 }: DirectMessageDisplayProps) {
     let baseStyle =
@@ -28,7 +34,7 @@ export default function DirectMessageDisplay({
     return (
         <div
             className={`${baseStyle} `}
-            onClick={() => openDirectMessage(otherUserId)}
+            onClick={() => openDirectMessage(otherUserId, username, threadId)}
         >
             {/* Left section */}
             <div className="flex flex-col justify-between">

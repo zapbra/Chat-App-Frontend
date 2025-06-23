@@ -1,7 +1,7 @@
 import { useContext, useEffect, useState } from "react";
 import { UserContext } from "../../components/context/UserContext";
 import { MessageCircle, User } from "lucide-react";
-import { useParams } from "react-router";
+import { Link, useParams } from "react-router";
 import { DbUser } from "../../types";
 import { fetchWithAuth } from "../../services/auth";
 import { toggleFollowUser } from "../../services/followers";
@@ -30,7 +30,7 @@ export default function UserPage() {
             }
         };
         fetchUserData();
-    }, []);
+    }, [userId]);
     return (
         <div className="max-w-[1440px] mx-auto flex justify-center">
             {/** Profile Top Section */}
@@ -67,11 +67,12 @@ export default function UserPage() {
                                 {isFollowing ? "Unfollow" : "Follow"}
                             </p>
                         </div>
-
-                        <div className="bg-sky-500 inline-flex gap-4 rounded-lg px-4 py-2 items-center cursor-pointer hover:bg-sky-700 transition">
-                            <MessageCircle color="white" size="20" />
-                            <p className="text-xl text-white">Message</p>
-                        </div>
+                        <Link to={`/profile/messages/${userId}`}>
+                            <div className="bg-sky-500 inline-flex gap-4 rounded-lg px-4 py-2 items-center cursor-pointer hover:bg-sky-700 transition">
+                                <MessageCircle color="white" size="20" />
+                                <p className="text-xl text-white">Message</p>
+                            </div>
+                        </Link>
                     </div>
                 </div>
             </div>

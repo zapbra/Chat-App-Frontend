@@ -25,7 +25,10 @@ export default function SearchBar() {
     }, [search]);
 
     useEffect(() => {
-        if (!debouncedSearch) return;
+        if (!debouncedSearch) {
+            setSearchResults([]);
+            return;
+        }
         // Fetch user list based on search
         const fetchData = async () => {
             setLoading(true);
@@ -74,6 +77,9 @@ export default function SearchBar() {
         };
     }, []);
 
+    const hideResults = () => {
+        setIsResultsVisible(false);
+    };
     return (
         <div
             ref={searchResultsRef}
@@ -91,6 +97,7 @@ export default function SearchBar() {
                     <SearchResults
                         search={debouncedSearch}
                         users={searchResults}
+                        hideResults={hideResults}
                     />
                 </div>
             )}

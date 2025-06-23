@@ -34,6 +34,10 @@ function App() {
                                 path="messages"
                                 element={<DirectMessages />}
                             />
+                            <Route
+                                path="messages/:userId"
+                                element={<DirectMessages />}
+                            />
                             <Route path="following" element={<Following />} />
                         </Route>
 
