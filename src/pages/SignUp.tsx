@@ -48,8 +48,6 @@ export default function SignUp() {
     };
 
     const onSubmit: SubmitHandler<Inputs> = async (data) => {
-        console.log("data");
-        console.log(data);
         setErrorMessage("");
         setLoading(true);
         const nameParts = data.fullName.trim().split(" ");

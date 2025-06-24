@@ -33,8 +33,6 @@ test("fetchWithAuth() returns data as intended", async () => {
         "GET"
     );
 
-    console.log("response");
-    console.log(response);
     if (!response.success) {
         throw new Error(`Failed to fetch with auth: ${response.error}`);
     }
@@ -50,7 +48,4 @@ test("likeMessage() properly likes and unlikes messages and returns the proper s
     }
 
     const response = await getUserMessages(loginResponse.data.user.id);
-
-    console.log("User message list response");
-    console.log(response);
 });

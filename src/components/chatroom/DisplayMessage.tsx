@@ -13,6 +13,7 @@ type DisplayMessageProps = {
     toggleLikeMessage: (messageId: number) => void;
     toggleReactMessage: (messageId: number, emoji: string) => void;
     replyToMessage: (msg: Message) => void;
+    isLastRead: boolean | null;
 };
 
 export default function DisplayMessage({
@@ -22,6 +23,7 @@ export default function DisplayMessage({
     toggleLikeMessage,
     toggleReactMessage,
     replyToMessage,
+    isLastRead,
 }: DisplayMessageProps) {
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     let baseClass = " w-fit mb-2 relative";
@@ -177,6 +179,8 @@ export default function DisplayMessage({
                             />
                         );
                     })}
+
+                {isLastRead && <p className="text-slate-300">Read</p>}
             </div>
         </div>
     );

@@ -185,8 +185,6 @@ export default function Chatroom() {
                     return { ...message, reactions };
                 });
 
-                console.log("messages");
-                console.log(messages);
                 setMessages(messages);
                 setMembers(membersData.members);
                 shouldScrollToBottom.current = true;
@@ -201,9 +199,6 @@ export default function Chatroom() {
         };
 
         const handleMessage = (msg: Message) => {
-            console.log("handling message");
-            console.log("msg");
-            console.log(msg);
             setMessages((prev) => {
                 shouldScrollToBottom.current = true;
                 return [...prev, msg];
@@ -215,7 +210,6 @@ export default function Chatroom() {
         };
 
         const handleConnect = () => {
-            console.log("🔁 Connected — joining room", roomId);
             socket.emit("join room", String(roomId));
         };
 
@@ -233,7 +227,6 @@ export default function Chatroom() {
 
         const handleBeforeUnload = () => {
             // Prevent leave room on refresh
-            console.log("Preventing leave room on refresh");
             window.removeEventListener("beforeunload", handleBeforeUnload);
         };
 
@@ -241,7 +234,6 @@ export default function Chatroom() {
 
         return () => {
             if (!window.location.href.includes(`/chatroom/${roomId}`)) {
-                console.log("🏃 Leaving room", roomId);
                 socket.emit("leave room", String(roomId));
             }
             socket.off("chat message", handleMessage);
@@ -265,8 +257,6 @@ export default function Chatroom() {
 
         const handleScroll = () => {
             if (container.scrollTop === 0 && messages.length > 0) {
-                console.log("about to fetch messages... id...");
-                console.log(messages[0].id);
                 fetchMessages(roomId, Number(messages[0].id));
             }
         };

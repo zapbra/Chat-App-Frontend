@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { UserContext } from "../../components/context/UserContext";
 import recentMessages from "../../data/recent_messages.json";
 import DirectMessageDisplay from "../../components/profile/DirectMessageDisplay";
@@ -44,12 +44,56 @@ export default function DirectMessages() {
     const [otherUserDmRead, setOtherUserDmRead] = useState<UserDmRead | null>(
         null
     );
-    console.log("messages");
-    console.log(messages);
+    const [dmJoined, setDmJoined] = useState(false);
+    const [lastReadMessageId, setLastReadMessageId] = useState(0);
+
+    const userDmReadRef = useRef(userDmRead);
+
+    // This is supposed to update the value faster so it can be accessed not stale
+
+    function updateDmRead(
+        user_id: number,
+        userDmReadArg: UserDmRead
+    ): DbDirectMessage | null {
+        if (currentChatMessages === null) return null;
+        if (!socket) {
+            return null;
+        }
+        if (!activeChatDetails) {
+            return null;
+        }
+        let mostRecentReceivedMessage = null;
+        // Iterate over the current chat messages to find the most recent one
+        // where the receiver_id matches the id arg.
+        // This is to check if it's been read
+        for (let i = currentChatMessages.length - 1; i >= 0; i--) {
+            const message = currentChatMessages[i];
+            if (message.receiver_id == user_id) {
+                mostRecentReceivedMessage = message;
+                break;
+            }
+        }
+        // User has not received any message for this chat, so no message to set read to true
+        if (mostRecentReceivedMessage == null) {
+            return null;
+        }
+
+        // Check if no message has been read or the most recently read one isn't updated
+        if (
+            userDmReadArg.last_read_message_id == null ||
+            userDmReadArg.last_read_message_id != mostRecentReceivedMessage.id
+        ) {
+            socket.emit("dm message read", {
+                threadId: activeChatDetails.threadId,
+                userId: user_id,
+                messageId: mostRecentReceivedMessage.id,
+            });
+        }
+        return mostRecentReceivedMessage;
+    }
 
     // Load / create a dm thread based on optional userId param
     useEffect(() => {
-        console.log("starting func");
         if (!userId) return;
         const fetchDataAndCreateThread = async () => {
             const response = await fetch(`${URL}/users/${userId}`);
@@ -98,9 +142,6 @@ export default function DirectMessages() {
         const handleConnect = () => {
             if (!activeChatDetails || activeChatDetails.threadId == null)
                 return;
-            console.log("connecting");
-            console.log(activeChatDetails);
-            socket.emit("join dm", String(activeChatDetails.threadId));
         };
 
         const handleMessage = ({
@@ -110,8 +151,6 @@ export default function DirectMessages() {
             thread_id: number;
             message: DbDirectMessage;
         }) => {
-            console.log("received message: " + message.message);
-
             setActiveChatDetails((prev) => {
                 if (prev == null) return null;
                 return {
@@ -126,15 +165,29 @@ export default function DirectMessages() {
             });
         };
 
+        const handleMessageRead = (dmMessageRead: UserDmRead) => {
+            // exit function because the event "dm message read" was trigged by this user
+            // so, it doesn't need to display that this user read the message
+            if (
+                dmMessageRead.user_id == Number(user.userId) ||
+                dmMessageRead.last_read_message_id == null
+            ) {
+                return;
+            }
+            // Program it so it sets a flag for a message showing a read icon. Possibly
+            // need to add some code to remove the old read icon from other message
+            setLastReadMessageId(dmMessageRead.last_read_message_id);
+        };
         // Join dm only after socket connects
         if (socket.connected && activeChatDetails.threadId != null) {
-            console.log("joinging dm...");
-            console.log(activeChatDetails.threadId);
             socket.emit("join dm", String(activeChatDetails.threadId));
-        } else {
-            socket.on("connect", handleConnect);
+
+            socket.once("joined dm", () => {
+                setDmJoined(true);
+            });
         }
 
+        socket.on("dm message read", handleMessageRead);
         socket.on("dm message", handleMessage);
         return () => {
             socket.emit("leave room", String(activeChatDetails.threadId));
@@ -142,6 +195,17 @@ export default function DirectMessages() {
             socket.off("connect", handleConnect);
         };
     }, [socket, activeChatDetails?.threadId]);
+
+    useEffect(() => {
+        if (
+            dmJoined &&
+            activeChatDetails?.threadId !== null &&
+            userDmRead !== null
+        ) {
+            updateDmRead(Number(user.userId), userDmRead);
+            setDmJoined(false);
+        }
+    }, [dmJoined, userDmRead, activeChatDetails?.threadId]);
 
     // Use effect to load initial data
     useEffect(() => {
@@ -152,9 +216,8 @@ export default function DirectMessages() {
                 messages: DirectMessage[];
             }>(`dms/threads`, "GET");
             if (messagesResponse.success) {
-                console.log("response..");
-                console.log(messagesResponse);
-                setMessages(messagesResponse.data.messages);
+                const fetchedMessages = messagesResponse.data.messages;
+                setMessages(fetchedMessages);
             }
             // Optimize this to only fetch when the send message is clicked
             const response = await fetch(
@@ -202,11 +265,7 @@ export default function DirectMessages() {
                     receiverUsername: username,
                     threadId: threadId,
                 });
-                console.log("Successfully created thread");
-                console.log(`Thread id: ${threadId}`);
             } else {
-                console.log("Failed to create thread");
-                console.log(response);
                 setActiveChatDetails({
                     receiverId: otherUserId,
                     receiverUsername: username,
@@ -227,7 +286,6 @@ export default function DirectMessages() {
         username: string,
         threadId: number
     ) => {
-        console.log("opening direct message");
         const response = await fetchWithAuth<{
             messages: DbDirectMessage[];
             threadId: number;
@@ -235,10 +293,13 @@ export default function DirectMessages() {
             otherUserDmRead: UserDmRead;
         }>(`dms/thread/${otherUserId}`, "GET");
         if (response.success) {
-            console.log("open direct messages response");
-            console.log(response.data);
             setNewMessagePopupOpen(false);
             setCurrentChatMessages(response.data.messages);
+            setUserDmRead(response.data.userDmRead);
+            setOtherUserDmRead(response.data.otherUserDmRead);
+            setLastReadMessageId(
+                response.data.otherUserDmRead.last_read_message_id ?? 0
+            );
             setActiveChatDetails({
                 receiverId: otherUserId,
                 receiverUsername: username,
@@ -307,7 +368,7 @@ export default function DirectMessages() {
                     )}
                     {currentChatMessages ? (
                         <>
-                            <div>
+                            <div className="overflow-y-auto pr-2">
                                 {currentChatMessages.map((message) => {
                                     return (
                                         <DisplayMessage
@@ -317,6 +378,9 @@ export default function DirectMessages() {
                                                 Number(user.userId)
                                             }
                                             liked={false}
+                                            isLastRead={
+                                                lastReadMessageId == message.id
+                                            }
                                         />
                                     );
                                 })}
