@@ -6,7 +6,7 @@ export interface UserAuth {
 
 export interface UserContextType {
     user: UserAuth;
-    setUser: React.Dispatch<React.SetStateAction<UserAuth | undefined>>;
+    setUser: React.Dispatch<React.SetStateAction<UserAuth>>;
     resetUserContext: () => void;
 }
 

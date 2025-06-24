@@ -1,6 +1,6 @@
 import { useContext, useEffect, useState } from "react";
 import { UserContext } from "../../components/context/UserContext";
-import { Follower, SearchUser } from "../../types";
+import { Follower } from "../../types";
 import FollowerDisplay from "./FollowerDisplay";
 
 const URL = import.meta.env.VITE_API_BASE_URL;

@@ -1,6 +1,5 @@
-import { fetchWithAuth, login, refreshToken, signUp } from "../services/auth";
-import { describe, expect, test } from "vitest";
-import { getUserMessages } from "../services/messages";
+import { fetchWithAuth, login, refreshToken } from "../services/auth";
+import { expect, test } from "vitest";
 
 test("refreshToken() returns a valid access token when successful", async () => {
     const loginResponse = await login("test@gmail.com", "Testpassword10!");
@@ -46,6 +45,4 @@ test("likeMessage() properly likes and unlikes messages and returns the proper s
     if (!loginResponse.success) {
         throw new Error(`Failed to login: ${loginResponse.error}`);
     }
-
-    const response = await getUserMessages(loginResponse.data.user.id);
 });

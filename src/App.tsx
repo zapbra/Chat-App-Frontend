@@ -4,7 +4,7 @@ import { BrowserRouter, Routes, Route } from "react-router";
 import Chatrooms from "./pages/Chatrooms";
 import Layout from "./components/Layout";
 import { AuthProvider } from "./components/context/AuthProvider";
-import SignUp from "./pages/Signup";
+import SignUp from "./pages/SignUp";
 import SignIn from "./pages/SignIn";
 import Account from "./pages/Account";
 import ProfileLayout from "./components/profile/ProfileLayout";

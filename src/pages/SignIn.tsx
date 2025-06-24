@@ -7,7 +7,7 @@ import { Link } from "react-router";
 
 export default function SignIn() {
     const navigate = useNavigate();
-    const { user, setUser } = useContext(UserContext);
+    const { setUser } = useContext(UserContext);
     const [userData, setUserData] = useState({
         email: "",
         password: "",

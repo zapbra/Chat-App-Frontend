@@ -19,7 +19,9 @@ export const initSocket = (
 
         socket.on("connect", () => {});
 
-        socket.on("connect_error", (err) => {});
+        socket.on("connect_error", (err) => {
+            console.log(err.message);
+        });
     }
 
     return socket;

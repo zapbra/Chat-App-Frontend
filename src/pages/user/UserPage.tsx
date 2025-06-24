@@ -1,5 +1,4 @@
-import { useContext, useEffect, useState } from "react";
-import { UserContext } from "../../components/context/UserContext";
+import { useEffect, useState } from "react";
 import { MessageCircle, User } from "lucide-react";
 import { Link, useParams } from "react-router";
 import { DbUser } from "../../types";
@@ -8,11 +7,10 @@ import { toggleFollowUser } from "../../services/followers";
 const URL = import.meta.env.VITE_API_BASE_URL;
 
 export default function UserPage() {
-    const { user } = useContext(UserContext);
     const { userId } = useParams();
     const [pageUser, setPageUser] = useState<DbUser | null>(null);
-    const [followerCount, setFollowerCount] = useState<number | null>(null);
-    const [followingCount, setFollowingCount] = useState<number | null>(null);
+    const [followerCount] = useState<number | null>(null);
+    const [followingCount] = useState<number | null>(null);
     const [isFollowing, setIsFollowing] = useState(false);
     useEffect(() => {
         const fetchUserData = async () => {

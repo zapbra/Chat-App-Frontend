@@ -1,9 +1,7 @@
-import { useContext, useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { UserContext } from "../../components/context/UserContext";
-import recentMessages from "../../data/recent_messages.json";
 import DirectMessageDisplay from "../../components/profile/DirectMessageDisplay";
-import DisplayMessage from "../../components/chatroom/DisplayMessage";
-import TestMessages from "../../data/messages.json";
+import DmDisplayMessage from "./DmDisplayMessage";
 import SendMessage from "../../components/chatroom/SendMessage";
 import {
     DbDirectMessage,
@@ -11,7 +9,7 @@ import {
     UserDmRead,
 } from "../../types/directMessages";
 import { fetchWithAuth } from "../../services/auth";
-import { Follower, Message } from "../../types";
+import { Follower } from "../../types";
 import NewMessagePopup from "../../components/profile/NewMessagePopup";
 import { Socket } from "socket.io-client";
 import { initSocket } from "../../components/socket";
@@ -46,8 +44,6 @@ export default function DirectMessages() {
     );
     const [dmJoined, setDmJoined] = useState(false);
     const [lastReadMessageId, setLastReadMessageId] = useState(0);
-
-    const userDmReadRef = useRef(userDmRead);
 
     // This is supposed to update the value faster so it can be accessed not stale
 
@@ -297,6 +293,7 @@ export default function DirectMessages() {
             setCurrentChatMessages(response.data.messages);
             setUserDmRead(response.data.userDmRead);
             setOtherUserDmRead(response.data.otherUserDmRead);
+            console.log(otherUserDmRead);
             setLastReadMessageId(
                 response.data.otherUserDmRead.last_read_message_id ?? 0
             );
@@ -371,7 +368,7 @@ export default function DirectMessages() {
                             <div className="overflow-y-auto pr-2">
                                 {currentChatMessages.map((message) => {
                                     return (
-                                        <DisplayMessage
+                                        <DmDisplayMessage
                                             message={message}
                                             isUserMessage={
                                                 message.sender_id ==

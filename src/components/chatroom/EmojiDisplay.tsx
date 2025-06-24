@@ -1,5 +1,4 @@
 import { useState } from "react";
-import LikerList from "./LikerListPortal";
 import LikerListPortal from "./LikerListPortal";
 
 type EmojiDisplayProps = {
@@ -7,8 +6,6 @@ type EmojiDisplayProps = {
     likeCount: number;
     liked: boolean;
     likedBy: string[];
-    onLike: () => void;
-    onDislike: () => void;
 };
 
 export default function EmojiDisplay({
@@ -16,8 +13,6 @@ export default function EmojiDisplay({
     likeCount,
     liked,
     likedBy,
-    onLike,
-    onDislike,
 }: EmojiDisplayProps) {
     const [showLikers, setShowLikers] = useState(false);
     const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });

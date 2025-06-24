@@ -1,15 +1,8 @@
-import React, {
-    useState,
-    useEffect,
-    useContext,
-    useRef,
-    useCallback,
-} from "react";
-import { getSocket, initSocket } from "../socket";
+import { useState, useEffect, useContext, useRef, useCallback } from "react";
+import { getSocket } from "../socket";
 import SendMessage from "./SendMessage";
-import { DbReaction, Message, ReactionMap } from "../../types";
+import { Message, ReactionMap } from "../../types";
 import { useParams } from "react-router";
-import messages from "../../data/messages.json";
 import DisplayMessage from "./DisplayMessage";
 import { UserContext } from "../context/UserContext";
 import { Link } from "react-router";
@@ -21,8 +14,6 @@ import {
 } from "../../services/messages";
 import { Socket } from "socket.io-client";
 import Reply from "./Reply";
-
-const typedMessages: Message[] = messages;
 
 const URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -108,10 +99,10 @@ export default function Chatroom() {
                     return;
                 }
 
-                const messages = data.messages.map((message) => {
+                const messages = data.messages.map((message: Message) => {
                     if (!message.reactions) return message;
                     const reactions = sortReactions(
-                        message.reactions,
+                        message.raw_reactions,
                         user.username
                     );
                     return {
@@ -119,7 +110,8 @@ export default function Chatroom() {
                         reactions,
                     };
                 });
-
+                console.log("messages from db..");
+                console.log(messages);
                 if (oldestMsgId) {
                     lastBeforeIdRef.current = oldestMsgId;
                     const container = chatRef.current;
@@ -176,14 +168,16 @@ export default function Chatroom() {
                     membersRes.json(),
                 ]);
                 setRoomName(messagesData.room.name);
-                const messages = messagesData.messages.map((message) => {
-                    if (!message.reactions) return message;
-                    const reactions = sortReactions(
-                        message.reactions,
-                        user.username
-                    );
-                    return { ...message, reactions };
-                });
+                const messages = messagesData.messages.map(
+                    (message: Message) => {
+                        if (!message.reactions) return message;
+                        const reactions = sortReactions(
+                            message.raw_reactions,
+                            user.username
+                        );
+                        return { ...message, reactions };
+                    }
+                );
 
                 setMessages(messages);
                 setMembers(membersData.members);
@@ -322,7 +316,7 @@ export default function Chatroom() {
                         userReacted: false,
                     };
 
-                    let updatedReaction = { ...existingReaction };
+                    const updatedReaction = { ...existingReaction };
 
                     if (response.data.reactedTo) {
                         updatedReaction.count += 1;
@@ -411,6 +405,7 @@ export default function Chatroom() {
                                     toggleLikeMessage={handleToggleLike}
                                     toggleReactMessage={handleToggleReact}
                                     replyToMessage={replyToMessage}
+                                    isLastRead={null}
                                 />
                             );
                         })}

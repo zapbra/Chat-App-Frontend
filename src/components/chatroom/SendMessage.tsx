@@ -1,8 +1,5 @@
-import { useContext, useState } from "react";
-import { getSocket } from "../socket.ts";
+import { useState } from "react";
 import { SendHorizonal } from "lucide-react";
-import { UserContext } from "../context/UserContext.ts";
-import { Socket } from "socket.io-client";
 
 export default function SendMessage({
     sendChatMessage,

@@ -13,7 +13,6 @@ export default function MessageDisplay({
     username,
     message,
     isRead,
-    link,
     sent_at,
     chatRoom,
 }: MessageDisplayProps) {
