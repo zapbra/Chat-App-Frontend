@@ -30,6 +30,7 @@ export interface Message {
     username: string;
     likes_count: string;
     likes: Like[] | null;
+    raw_reactions: DbReaction[];
     reactions: ReactionMap | null;
     replying_to_created_at: string | null;
     replying_to_id: number | null;

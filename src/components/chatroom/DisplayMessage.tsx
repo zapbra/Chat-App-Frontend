@@ -1,10 +1,8 @@
-import { Heart } from "lucide-react";
 import { Message } from "../../types";
 import { stringToReadableDate } from "../../utils/utils";
 import EmojiDisplay from "./EmojiDisplay";
 import { useEffect, useRef, useState } from "react";
-import EmojiPicker from "emoji-picker-react";
-import LikerList from "./LikerListPortal";
+import EmojiPicker, { EmojiClickData } from "emoji-picker-react";
 
 type DisplayMessageProps = {
     message: Message;
@@ -13,6 +11,7 @@ type DisplayMessageProps = {
     toggleLikeMessage: (messageId: number) => void;
     toggleReactMessage: (messageId: number, emoji: string) => void;
     replyToMessage: (msg: Message) => void;
+    isLastRead: boolean | null;
 };
 
 export default function DisplayMessage({
@@ -22,6 +21,7 @@ export default function DisplayMessage({
     toggleLikeMessage,
     toggleReactMessage,
     replyToMessage,
+    isLastRead,
 }: DisplayMessageProps) {
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     let baseClass = " w-fit mb-2 relative";
@@ -71,7 +71,7 @@ export default function DisplayMessage({
         };
     }, [showEmojiPicker]);
 
-    const handleEmojiClick = (emojiData: any) => {
+    const handleEmojiClick = (emojiData: EmojiClickData) => {
         toggleReactMessage(Number(message.id), emojiData.emoji);
         setShowEmojiPicker(false);
     };
@@ -160,8 +160,6 @@ export default function DisplayMessage({
                         likedBy={
                             message.likes?.map((like) => like.username) ?? []
                         }
-                        onLike={() => {}}
-                        onDislike={() => {}}
                     />
                 )}
                 {message.reactions &&
@@ -172,11 +170,11 @@ export default function DisplayMessage({
                                 likeCount={value.count}
                                 liked={value.userReacted}
                                 likedBy={value.users}
-                                onLike={() => {}}
-                                onDislike={() => {}}
                             />
                         );
                     })}
+
+                {isLastRead && <p className="text-slate-300">Read</p>}
             </div>
         </div>
     );

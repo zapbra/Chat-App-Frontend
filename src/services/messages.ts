@@ -4,7 +4,7 @@ import {
     MessageResponse,
     ReactionResponse,
 } from "../types";
-import { FetchMethod, fetchWithAuth } from "./auth";
+import { fetchWithAuth } from "./auth";
 
 const URL = import.meta.env.VITE_API_BASE_URL;
 

@@ -121,8 +121,6 @@ export async function fetchWithAuth<T = unknown>(
                 });
                 // Request failed again
                 if (!response.ok) {
-                    console.log("error respones");
-                    console.log(response);
                     throw new Error("Unauthorized");
                 }
                 // Successfully requested data after refreshing token

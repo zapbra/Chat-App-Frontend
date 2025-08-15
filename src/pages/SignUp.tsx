@@ -1,9 +1,8 @@
 import { useContext, useState } from "react";
 import { signUp } from "../services/auth";
-import { FormUser, UserAuth } from "../types";
 import { UserContext } from "../components/context/UserContext";
 import { Link } from "react-router";
-import { Eye, EyeClosed, EyeClosedIcon, EyeOff } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import { useForm, SubmitHandler } from "react-hook-form";
 import toast, { Toaster } from "react-hot-toast";
 
@@ -16,7 +15,7 @@ type Inputs = {
 };
 
 export default function SignUp() {
-    const { user, setUser } = useContext(UserContext);
+    const { setUser } = useContext(UserContext);
     const {
         register,
         handleSubmit,
@@ -28,28 +27,9 @@ export default function SignUp() {
     const [showPassword, setShowPassword] = useState(false);
     const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
 
-    const [userData, setUserData] = useState<FormUser>({
-        fullName: "",
-        username: "",
-        email: "",
-        password: "",
-        passwordConfirm: "",
-    });
-
     const [loading, setLoading] = useState(false);
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const { name, value } = e.target;
-
-        setUserData((prevUser) => ({
-            ...prevUser,
-            [name]: value,
-        }));
-    };
-
     const onSubmit: SubmitHandler<Inputs> = async (data) => {
-        console.log("data");
-        console.log(data);
         setErrorMessage("");
         setLoading(true);
         const nameParts = data.fullName.trim().split(" ");

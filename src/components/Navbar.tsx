@@ -4,7 +4,7 @@ import { Link } from "react-router";
 import { useNavigate } from "react-router";
 import SearchBar from "./search/SearchBar";
 export default function Navbar() {
-    const { user, setUser, resetUserContext } = useContext(UserContext);
+    const { user, resetUserContext } = useContext(UserContext);
     const navigate = useNavigate();
 
     const handleLogout = () => {

@@ -1,5 +1,5 @@
 import { Search } from "lucide-react";
-import { useEffect, useReducer, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import SearchResults from "./SearchResults";
 import { SearchUser } from "../../types";
 
@@ -8,7 +8,6 @@ const URL = import.meta.env.VITE_API_BASE_URL;
 export default function SearchBar() {
     const [search, setSearch] = useState("");
     const [debouncedSearch, setDebouncedSearch] = useState("");
-    const [loading, setLoading] = useState(false);
     const [searchResults, setSearchResults] = useState<SearchUser[]>([]);
     const [isResultsVisible, setIsResultsVisible] = useState(false);
     const searchResultsRef = useRef<HTMLDivElement>(null);
@@ -31,7 +30,6 @@ export default function SearchBar() {
         }
         // Fetch user list based on search
         const fetchData = async () => {
-            setLoading(true);
             try {
                 const response = await fetch(`${URL}/search`, {
                     method: "POST",
@@ -41,8 +39,8 @@ export default function SearchBar() {
                 const data = await response.json();
                 setSearchResults(data.users);
                 setIsResultsVisible(true);
-            } finally {
-                setLoading(false);
+            } catch (error) {
+                console.log(error);
             }
         };
 

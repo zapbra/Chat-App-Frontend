@@ -1,15 +1,8 @@
-import React, {
-    useState,
-    useEffect,
-    useContext,
-    useRef,
-    useCallback,
-} from "react";
-import { getSocket, initSocket } from "../socket";
+import { useState, useEffect, useContext, useRef, useCallback } from "react";
+import { getSocket } from "../socket";
 import SendMessage from "./SendMessage";
-import { DbReaction, Message, ReactionMap } from "../../types";
+import { Message, ReactionMap } from "../../types";
 import { useParams } from "react-router";
-import messages from "../../data/messages.json";
 import DisplayMessage from "./DisplayMessage";
 import { UserContext } from "../context/UserContext";
 import { Link } from "react-router";
@@ -21,8 +14,6 @@ import {
 } from "../../services/messages";
 import { Socket } from "socket.io-client";
 import Reply from "./Reply";
-
-const typedMessages: Message[] = messages;
 
 const URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -121,7 +112,8 @@ export default function Chatroom() {
                     const reactions = sortReactions(m.reactions, user.username);
                     return { ...m, reactions };
                 });
-
+                console.log("messages from db..");
+                console.log(messages);
                 if (oldestMsgId) {
                     lastBeforeIdRef.current = oldestMsgId;
                     const container = chatRef.current;
@@ -299,7 +291,7 @@ export default function Chatroom() {
                         userReacted: false,
                     };
 
-                    let updatedReaction = { ...existingReaction };
+                    const updatedReaction = { ...existingReaction };
 
                     if (response.data.reactedTo) {
                         updatedReaction.count += 1;
@@ -388,6 +380,7 @@ export default function Chatroom() {
                                     toggleLikeMessage={handleToggleLike}
                                     toggleReactMessage={handleToggleReact}
                                     replyToMessage={replyToMessage}
+                                    isLastRead={null}
                                 />
                             );
                         })}
