@@ -41,7 +41,7 @@ export default function Chatroom() {
     const lastBeforeIdRef = useRef<number | null>(null); // prevent repeat fetch
     const [hasMore, setHasMore] = useState(true);
     const [members, setMembers] = useState<string[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [replying, setReplying] = useState(false);
     const [replyMessage, setReplyMessage] = useState<Message | null>(null);
@@ -88,36 +88,38 @@ export default function Chatroom() {
         messagesRef.current = messages;
     }, [messages]);
 
-    // Fetch messages with proper error handling
     const fetchMessages = useCallback(
         async (roomId: number, oldestMsgId?: number, limit: number = LIMIT) => {
             if (!hasMore && oldestMsgId) return;
             if (oldestMsgId && lastBeforeIdRef.current === oldestMsgId) return;
 
-            try {
-                const url = oldestMsgId
-                    ? `${URL}/rooms/${roomId}?beforeId=${oldestMsgId}&limit=${limit}`
-                    : `${URL}/rooms/${roomId}`;
+            const url = oldestMsgId
+                ? `${URL}/rooms/${roomId}?beforeId=${oldestMsgId}&limit=${limit}`
+                : `${URL}/rooms/${roomId}`;
 
-                const response = await fetch(url);
+            try {
+                const response = await fetch(url, {
+                    // If your API supports auth via header, you can optionally add it here:
+                    // headers: user.loggedIn ? { Authorization: `Bearer ${localStorage.getItem("accessToken")}` } : {},
+                });
                 if (!response.ok) throw new Error("Failed to fetch messages");
 
                 const data = await response.json();
-                if (data.messages.length === 0) {
-                    setHasMore(false);
+
+                if (!oldestMsgId) {
+                    // set room name on first load
+                    setRoomName(data.room?.name ?? "");
+                }
+
+                if (!data.messages || data.messages.length === 0) {
+                    if (oldestMsgId) setHasMore(false);
                     return;
                 }
 
-                const messages = data.messages.map((message) => {
-                    if (!message.reactions) return message;
-                    const reactions = sortReactions(
-                        message.reactions,
-                        user.username
-                    );
-                    return {
-                        ...message,
-                        reactions,
-                    };
+                const mapped = data.messages.map((m: any) => {
+                    if (!m.reactions) return m;
+                    const reactions = sortReactions(m.reactions, user.username);
+                    return { ...m, reactions };
                 });
 
                 if (oldestMsgId) {
@@ -133,11 +135,11 @@ export default function Chatroom() {
                                     newScrollHeight - prevScrollHeight;
                             }
                         }, 0);
-                        return [...messages, ...prev];
+                        return [...mapped, ...prev];
                     });
                 } else {
                     shouldScrollToBottom.current = true;
-                    setMessages(messages);
+                    setMessages(mapped);
                 }
             } catch (err) {
                 setError(
@@ -148,132 +150,97 @@ export default function Chatroom() {
                 console.error(err);
             }
         },
-        [hasMore]
+        [hasMore, user.username]
     );
 
-    // Socket connection handlers
+    // Ensure socket exists (initialize here if needed)
     useEffect(() => {
-        if (!user.loggedIn) return;
-
-        const token = localStorage.getItem("accessToken");
-        if (!token) return;
-        if (!socket) return;
-        const loadInitialData = async () => {
+        let s = getSocket();
+        if (!s) {
+            // If your app doesn’t guarantee init elsewhere, do it here:
             try {
-                setLoading(true);
-                setError(null);
+                initSocket(); // make sure this reads token from storage if required
+                s = getSocket();
+            } catch {}
+        }
+        if (s) setSocket(s);
 
-                const [messagesRes, membersRes] = await Promise.all([
-                    fetch(`${URL}/rooms/${roomId}`),
-                    fetch(`${URL}/rooms/${roomId}/members`),
+        // Poll as you had before (optional)
+        if (!s) {
+            const interval = setInterval(() => {
+                const maybe = getSocket();
+                if (maybe) {
+                    setSocket(maybe);
+                    clearInterval(interval);
+                }
+            }, 100);
+            return () => clearInterval(interval);
+        }
+    }, []);
+
+    // Initial data load — DO NOT early return for auth/socket
+    useEffect(() => {
+        (async () => {
+            setLoading(true);
+            setError(null);
+            try {
+                await Promise.all([
+                    fetchMessages(roomId),
+                    (async () => {
+                        // members endpoint may require auth; guard it
+                        if (user.loggedIn) {
+                            const membersRes = await fetch(
+                                `${URL}/rooms/${roomId}/members`
+                            );
+                            if (membersRes.ok) {
+                                const md = await membersRes.json();
+                                setMembers(md.members || []);
+                            } else {
+                                // don’t fail the whole page if members require auth
+                                setMembers([]);
+                            }
+                        } else {
+                            setMembers([]);
+                        }
+                    })(),
                 ]);
-
-                if (!messagesRes.ok) throw new Error("Failed to load messages");
-                if (!membersRes.ok) throw new Error("Failed to load members");
-
-                const [messagesData, membersData] = await Promise.all([
-                    messagesRes.json(),
-                    membersRes.json(),
-                ]);
-                setRoomName(messagesData.room.name);
-                const messages = messagesData.messages.map((message) => {
-                    if (!message.reactions) return message;
-                    const reactions = sortReactions(
-                        message.reactions,
-                        user.username
-                    );
-                    return { ...message, reactions };
-                });
-
-                console.log("messages");
-                console.log(messages);
-                setMessages(messages);
-                setMembers(membersData.members);
-                shouldScrollToBottom.current = true;
-            } catch (err) {
-                setError(
-                    err instanceof Error ? err.message : "Initialization failed"
-                );
-                console.error(err);
             } finally {
                 setLoading(false);
             }
-        };
+        })();
+    }, [roomId, user.loggedIn, fetchMessages]);
+
+    // Socket room join only when socket is ready AND (optionally) user is logged in
+    useEffect(() => {
+        if (!socket) return;
 
         const handleMessage = (msg: Message) => {
-            console.log("handling message");
-            console.log("msg");
-            console.log(msg);
-            setMessages((prev) => {
-                shouldScrollToBottom.current = true;
-                return [...prev, msg];
-            });
+            shouldScrollToBottom.current = true;
+            setMessages((prev) => [...prev, msg]);
         };
 
-        const handleMemberUpdate = (newMembers: string[]) => {
+        const handleMemberUpdate = (newMembers: string[]) =>
             setMembers(newMembers);
-        };
 
-        const handleConnect = () => {
+        const join = () => {
             console.log("🔁 Connected — joining room", roomId);
             socket.emit("join room", String(roomId));
         };
 
-        loadInitialData();
-
-        socket.on("connect", handleConnect);
-
-        // Join room only after socket connects
-        if (socket.connected) {
-            handleConnect();
-        }
+        socket.on("connect", join);
+        if (socket.connected) join();
 
         socket.on("chat message", handleMessage);
         socket.on("members:updated", handleMemberUpdate);
 
-        const handleBeforeUnload = () => {
-            // Prevent leave room on refresh
-            console.log("Preventing leave room on refresh");
-            window.removeEventListener("beforeunload", handleBeforeUnload);
-        };
-
-        window.addEventListener("beforeunload", handleBeforeUnload);
-
         return () => {
-            if (!window.location.href.includes(`/chatroom/${roomId}`)) {
-                console.log("🏃 Leaving room", roomId);
-                socket.emit("leave room", String(roomId));
-            }
+            // leave room only when navigating away from this room
+            socket.emit("leave room", String(roomId));
+            socket.off("connect", join);
             socket.off("chat message", handleMessage);
             socket.off("members:updated", handleMemberUpdate);
-            socket.off("connect", handleConnect);
-            window.removeEventListener("beforeunload", handleBeforeUnload);
         };
-    }, [roomId, user, socket]);
-
-    // Auto-scroll to bottom when new messages arrive
-    useEffect(() => {
-        if (!shouldScrollToBottom.current || !chatRef.current) return;
-        chatRef.current.scrollTop = chatRef.current.scrollHeight;
-        shouldScrollToBottom.current = false;
-    }, [messages]);
-
-    // Infinite scroll handler
-    useEffect(() => {
-        const container = chatRef.current;
-        if (!container) return;
-
-        const handleScroll = () => {
-            if (container.scrollTop === 0 && messages.length > 0) {
-                console.log("about to fetch messages... id...");
-                console.log(messages[0].id);
-                fetchMessages(roomId, Number(messages[0].id));
-            }
-        };
-
-        container.addEventListener("scroll", handleScroll);
-        return () => container.removeEventListener("scroll", handleScroll);
-    }, [messages, roomId, fetchMessages]);
+    }, [socket, roomId]);
 
     const handleToggleLike = async (messageId: number) => {
         const response = await toggleMessageLike(messageId);
