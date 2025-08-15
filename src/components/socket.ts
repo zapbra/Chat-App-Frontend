@@ -5,26 +5,41 @@ const apiUrl = import.meta.env.VITE_SOCKET_URL;
 
 let socket: Socket | null = null;
 
-export const initSocket = (
-    username: string,
-    userId: string,
-    token: string
-): Socket => {
+export const ensureSocket = (): Socket => {
     if (!socket) {
         socket = io(apiUrl, {
-            auth: { username, userId, token },
-            autoConnect: true,
+            autoConnect: false, // important
             transports: ["websocket"],
         });
 
-        socket.on("connect", () => {});
-
         socket.on("connect_error", (err) => {
-            console.log(err.message);
+            console.log("socket connect_error:", err?.message || err);
         });
     }
-
     return socket;
 };
 
-export const getSocket = (): Socket | null => socket;
+// Call this right after login (or whenever token rotates)
+export const connectSocket = (auth?: {
+    username: string;
+    userId: string | number;
+    token: string;
+}) => {
+    const s = ensureSocket();
+    if (auth) {
+        s.auth = {
+            username: auth.username,
+            userId: String(auth.userId),
+            token: auth.token,
+        };
+    }
+    if (!s.connected) s.connect();
+    return s;
+};
+
+// If user logs out
+export const disconnectSocket = () => {
+    if (socket?.connected) socket.disconnect();
+};
+
+export const getSocket = (): Socket | null => ensureSocket();

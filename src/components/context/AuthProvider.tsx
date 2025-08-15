@@ -2,9 +2,10 @@ import React, { useEffect, useState } from "react";
 import { UserContext } from "./UserContext";
 import { UserAuth } from "../../types";
 import { refreshToken } from "../../services/auth";
-import { initSocket } from "../socket";
+import { connectSocket, disconnectSocket } from "../socket";
 
 const URL = import.meta.env.VITE_API_BASE_URL;
+
 const initialContext: UserAuth = {
     loggedIn: false,
     username: "",
@@ -14,39 +15,66 @@ const initialContext: UserAuth = {
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const [user, setUser] = useState<UserAuth>(initialContext);
 
-    const resetUserContext = () => setUser(initialContext);
+    const resetUserContext = () => {
+        setUser(initialContext);
+        disconnectSocket();
+        localStorage.removeItem("accessToken");
+    };
 
     useEffect(() => {
         const checkAuth = async () => {
-            const token = localStorage.getItem("accessToken");
-            if (token) {
+            try {
+                const stored = localStorage.getItem("accessToken");
+                if (!stored) return;
+
+                // try with stored token
+                let accessToken = stored;
                 let res = await fetch(`${URL}/user`, {
-                    headers: { Authorization: `Bearer ${token}` },
+                    headers: { Authorization: `Bearer ${accessToken}` },
                 });
 
+                // if it fails, try refresh -> retry /user
                 if (!res.ok) {
-                    const refreshResponse = await refreshToken();
-                    if (refreshResponse.success) {
-                        res = await fetch(`${URL}/user`, {
-                            headers: {
-                                Authorization: `Bearer ${refreshResponse.data.accessToken}}`,
-                            },
-                        });
-                    } else {
-                        throw new Error("Invalid or expired token");
+                    const refreshRes = await refreshToken();
+                    if (!refreshRes.success) {
+                        resetUserContext();
+                        return;
+                    }
+                    accessToken = refreshRes.data.accessToken;
+                    localStorage.setItem("accessToken", accessToken);
+
+                    res = await fetch(`${URL}/user`, {
+                        headers: { Authorization: `Bearer ${accessToken}` }, // <-- fixed stray "}"
+                    });
+                    if (!res.ok) {
+                        resetUserContext();
+                        return;
                     }
                 }
 
                 const data = await res.json();
+
                 setUser({
                     loggedIn: true,
                     username: data.username,
-                    userId: data.id,
+                    userId: String(data.id),
                 });
-                initSocket(data.username, data.id, token);
+
+                // 👉 connect the socket with current auth
+                connectSocket({
+                    username: data.username,
+                    userId: data.id,
+                    token: accessToken,
+                });
+            } catch {
+                resetUserContext();
             }
         };
+
         checkAuth();
+
+        // optional: disconnect on provider unmount
+        return () => disconnectSocket();
     }, []);
 
     const contextValue = { user, setUser, resetUserContext };

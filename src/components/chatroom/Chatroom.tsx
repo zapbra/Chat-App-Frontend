@@ -38,19 +38,7 @@ export default function Chatroom() {
     const [replyMessage, setReplyMessage] = useState<Message | null>(null);
 
     useEffect(() => {
-        const s = getSocket();
-        if (s) {
-            setSocket(s);
-        } else {
-            const interval = setInterval(() => {
-                const maybeSocket = getSocket();
-                if (maybeSocket) {
-                    setSocket(maybeSocket);
-                    clearInterval(interval);
-                }
-            }, 100); // poll every 100ms
-            return () => clearInterval(interval);
-        }
+        setSocket(getSocket());
     }, []);
 
     const sendChatMessage = (message: string) => {
@@ -89,16 +77,15 @@ export default function Chatroom() {
                 : `${URL}/rooms/${roomId}`;
 
             try {
+                const token = localStorage.getItem("accessToken");
                 const response = await fetch(url, {
-                    // If your API supports auth via header, you can optionally add it here:
-                    // headers: user.loggedIn ? { Authorization: `Bearer ${localStorage.getItem("accessToken")}` } : {},
+                    headers: token ? { Authorization: `Bearer ${token}` } : {},
                 });
                 if (!response.ok) throw new Error("Failed to fetch messages");
 
                 const data = await response.json();
 
                 if (!oldestMsgId) {
-                    // set room name on first load
                     setRoomName(data.room?.name ?? "");
                 }
 
@@ -107,13 +94,15 @@ export default function Chatroom() {
                     return;
                 }
 
-                const mapped = data.messages.map((m: any) => {
+                const mapped: Message[] = data.messages.map((m: any) => {
                     if (!m.reactions) return m;
                     const reactions = sortReactions(m.reactions, user.username);
                     return { ...m, reactions };
                 });
+
                 console.log("messages from db..");
-                console.log(messages);
+                console.log(mapped);
+
                 if (oldestMsgId) {
                     lastBeforeIdRef.current = oldestMsgId;
                     const container = chatRef.current;
@@ -145,31 +134,6 @@ export default function Chatroom() {
         [hasMore, user.username]
     );
 
-    // Ensure socket exists (initialize here if needed)
-    useEffect(() => {
-        let s = getSocket();
-        if (!s) {
-            // If your app doesn’t guarantee init elsewhere, do it here:
-            try {
-                initSocket(); // make sure this reads token from storage if required
-                s = getSocket();
-            } catch {}
-        }
-        if (s) setSocket(s);
-
-        // Poll as you had before (optional)
-        if (!s) {
-            const interval = setInterval(() => {
-                const maybe = getSocket();
-                if (maybe) {
-                    setSocket(maybe);
-                    clearInterval(interval);
-                }
-            }, 100);
-            return () => clearInterval(interval);
-        }
-    }, []);
-
     // Initial data load — DO NOT early return for auth/socket
     useEffect(() => {
         (async () => {
@@ -181,14 +145,19 @@ export default function Chatroom() {
                     (async () => {
                         // members endpoint may require auth; guard it
                         if (user.loggedIn) {
+                            const token = localStorage.getItem("accessToken");
                             const membersRes = await fetch(
-                                `${URL}/rooms/${roomId}/members`
+                                `${URL}/rooms/${roomId}/members`,
+                                {
+                                    headers: token
+                                        ? { Authorization: `Bearer ${token}` }
+                                        : {},
+                                }
                             );
                             if (membersRes.ok) {
                                 const md = await membersRes.json();
                                 setMembers(md.members || []);
                             } else {
-                                // don’t fail the whole page if members require auth
                                 setMembers([]);
                             }
                         } else {

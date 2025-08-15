@@ -12,7 +12,7 @@ import { fetchWithAuth } from "../../services/auth";
 import { Follower } from "../../types";
 import NewMessagePopup from "../../components/profile/NewMessagePopup";
 import { Socket } from "socket.io-client";
-import { initSocket } from "../../components/socket";
+import { connectSocket, getSocket } from "../../components/socket";
 import { useParams } from "react-router";
 
 const URL = import.meta.env.VITE_API_BASE_URL;
@@ -33,11 +33,8 @@ export default function DirectMessages() {
     >(null);
     const [activeChatDetails, setActiveChatDetails] =
         useState<ActiveChatDetails | null>(null);
-    // Optimize this to only fetch when the send message is clicked
     const [following, setFollowing] = useState<Follower[]>([]);
-
     const [socket, setSocket] = useState<Socket | null>(null);
-
     const [userDmRead, setUserDmRead] = useState<UserDmRead | null>(null);
     const [otherUserDmRead, setOtherUserDmRead] = useState<UserDmRead | null>(
         null
@@ -45,23 +42,14 @@ export default function DirectMessages() {
     const [dmJoined, setDmJoined] = useState(false);
     const [lastReadMessageId, setLastReadMessageId] = useState(0);
 
-    // This is supposed to update the value faster so it can be accessed not stale
-
     function updateDmRead(
         user_id: number,
         userDmReadArg: UserDmRead
     ): DbDirectMessage | null {
-        if (currentChatMessages === null) return null;
-        if (!socket) {
+        if (currentChatMessages === null || !socket || !activeChatDetails)
             return null;
-        }
-        if (!activeChatDetails) {
-            return null;
-        }
-        let mostRecentReceivedMessage = null;
-        // Iterate over the current chat messages to find the most recent one
-        // where the receiver_id matches the id arg.
-        // This is to check if it's been read
+
+        let mostRecentReceivedMessage: DbDirectMessage | null = null;
         for (let i = currentChatMessages.length - 1; i >= 0; i--) {
             const message = currentChatMessages[i];
             if (message.receiver_id == user_id) {
@@ -69,12 +57,8 @@ export default function DirectMessages() {
                 break;
             }
         }
-        // User has not received any message for this chat, so no message to set read to true
-        if (mostRecentReceivedMessage == null) {
-            return null;
-        }
+        if (!mostRecentReceivedMessage) return null;
 
-        // Check if no message has been read or the most recently read one isn't updated
         if (
             userDmReadArg.last_read_message_id == null ||
             userDmReadArg.last_read_message_id != mostRecentReceivedMessage.id
@@ -88,12 +72,11 @@ export default function DirectMessages() {
         return mostRecentReceivedMessage;
     }
 
-    // Load / create a dm thread based on optional userId param
+    // If route is /profile/messages/:userId, auto-create/open a thread
     useEffect(() => {
         if (!userId) return;
         const fetchDataAndCreateThread = async () => {
             const response = await fetch(`${URL}/users/${userId}`);
-            // Might want to handle edge case where provided user doesn't exist, but it's not a big deal
             if (response.ok) {
                 const data = await response.json();
                 createNewMessageThread(Number(userId), data.user.username);
@@ -101,43 +84,57 @@ export default function DirectMessages() {
         };
         fetchDataAndCreateThread();
     }, [userId]);
+
     const sendChatMessage = (message: string) => {
-        // Might want to handle this errors more gracefully in the future, instead of doing console.error
-        if (!socket) {
+        if (!user?.loggedIn) return;
+        const s = socket ?? getSocket();
+        if (!s) {
             console.error("Socket not initialized");
             return;
         }
-
-        // User must be in chat to send a message
         if (!activeChatDetails) {
             console.error("User is not in active chat");
             return;
         }
 
-        socket.emit("dm message", {
+        s.emit("dm message", {
             senderId: user.userId,
             receiverId: activeChatDetails.receiverId,
             message,
             threadId: activeChatDetails.threadId,
         });
     };
-    // Load the web socket initially if user logged in and it hasn't been loaded yet
+
+    // Ensure we hold a socket instance in state
     useEffect(() => {
-        if (!user?.loggedIn || socket) return;
+        const s = getSocket();
+        if (!socket) setSocket(s);
+    }, [socket]);
 
-        const token = localStorage.getItem("accessToken");
-        if (!token) return;
-        const initializedSocket = initSocket(user.username, user.userId, token);
-        setSocket(initializedSocket);
-    }, [user, socket]);
-
-    // Socket for handling messages and setting up joining / leaving direct message rooms
+    // Connect the socket with auth when user is logged in
     useEffect(() => {
-        if (!socket || !user?.loggedIn || activeChatDetails == null) return;
+        if (!user?.loggedIn) return;
+        const s = socket ?? getSocket();
+        if (!s?.connected) {
+            const token = localStorage.getItem("accessToken");
+            if (token) {
+                const connected = connectSocket({
+                    username: user.username,
+                    userId: user.userId,
+                    token,
+                });
+                setSocket(connected);
+            }
+        }
+    }, [user.loggedIn]); // eslint-disable-line react-hooks/exhaustive-deps
 
-        const handleConnect = () => {
-            if (!activeChatDetails || activeChatDetails.threadId == null)
-                return;
+    // Socket handlers: join thread room, receive DMs, read receipts
+    useEffect(() => {
+        if (!socket || !user?.loggedIn || !activeChatDetails?.threadId) return;
+
+        const join = () => {
+            socket.emit("join dm", String(activeChatDetails.threadId));
+            socket.once("joined dm", () => setDmJoined(true));
         };
 
         const handleMessage = ({
@@ -147,51 +144,41 @@ export default function DirectMessages() {
             thread_id: number;
             message: DbDirectMessage;
         }) => {
-            setActiveChatDetails((prev) => {
-                if (prev == null) return null;
-                return {
-                    ...prev,
-                    threadId: thread_id,
-                };
-            });
-
-            setCurrentChatMessages((prev) => {
-                if (prev == null) return [message];
-                return [...prev, message];
-            });
+            setActiveChatDetails((prev) =>
+                prev ? { ...prev, threadId: thread_id } : prev
+            );
+            setCurrentChatMessages((prev) =>
+                prev ? [...prev, message] : [message]
+            );
         };
 
         const handleMessageRead = (dmMessageRead: UserDmRead) => {
-            // exit function because the event "dm message read" was trigged by this user
-            // so, it doesn't need to display that this user read the message
             if (
                 dmMessageRead.user_id == Number(user.userId) ||
                 dmMessageRead.last_read_message_id == null
             ) {
                 return;
             }
-            // Program it so it sets a flag for a message showing a read icon. Possibly
-            // need to add some code to remove the old read icon from other message
             setLastReadMessageId(dmMessageRead.last_read_message_id);
         };
-        // Join dm only after socket connects
-        if (socket.connected && activeChatDetails.threadId != null) {
-            socket.emit("join dm", String(activeChatDetails.threadId));
 
-            socket.once("joined dm", () => {
-                setDmJoined(true);
-            });
-        }
+        socket.on("connect", join);
+        if (socket.connected) join();
 
-        socket.on("dm message read", handleMessageRead);
         socket.on("dm message", handleMessage);
-        return () => {
-            socket.emit("leave room", String(activeChatDetails.threadId));
-            socket.off("dm message", handleMessage);
-            socket.off("connect", handleConnect);
-        };
-    }, [socket, activeChatDetails?.threadId]);
+        socket.on("dm message read", handleMessageRead);
 
+        return () => {
+            if (activeChatDetails?.threadId != null) {
+                socket.emit("leave dm", String(activeChatDetails.threadId)); // ⬅️ was "leave room"
+            }
+            socket.off("connect", join);
+            socket.off("dm message", handleMessage);
+            socket.off("dm message read", handleMessageRead);
+        };
+    }, [socket, user?.loggedIn, activeChatDetails?.threadId]);
+
+    // On successful join, send read receipt for latest received message
     useEffect(() => {
         if (
             dmJoined &&
@@ -203,7 +190,7 @@ export default function DirectMessages() {
         }
     }, [dmJoined, userDmRead, activeChatDetails?.threadId]);
 
-    // Use effect to load initial data
+    // Initial data for sidebar + following list
     useEffect(() => {
         if (!user.userId) return;
 
@@ -212,10 +199,9 @@ export default function DirectMessages() {
                 messages: DirectMessage[];
             }>(`dms/threads`, "GET");
             if (messagesResponse.success) {
-                const fetchedMessages = messagesResponse.data.messages;
-                setMessages(fetchedMessages);
+                setMessages(messagesResponse.data.messages);
             }
-            // Optimize this to only fetch when the send message is clicked
+
             const response = await fetch(
                 `${URL}/followers/${user.userId}/following`
             );
@@ -233,33 +219,30 @@ export default function DirectMessages() {
         username: string
     ) => {
         setNewMessagePopupOpen(false);
-        // Check if thread between users exists
         const response = await fetchWithAuth<{
             threadId: number;
             messages: DbDirectMessage[];
         }>(`dms/thread/${otherUserId}`, "GET");
-        // Thread does exist, so populate local data with thread information
+
         if (response.success) {
             const { threadId, messages } = response.data;
             setCurrentChatMessages(messages);
             setActiveChatDetails({
                 receiverId: otherUserId,
                 receiverUsername: username,
-                threadId: threadId,
+                threadId,
             });
-            // Thread does not exist, create thread
         } else {
-            const response = await fetchWithAuth<{ threadId: number }>(
+            const createRes = await fetchWithAuth<{ threadId: number }>(
                 `dms/thread/${otherUserId}`,
                 "POST"
             );
-            // Thread successfully created, populate local data with thread infromation
-            if (response.success) {
-                const { threadId } = response.data;
+            if (createRes.success) {
+                const { threadId } = createRes.data;
                 setActiveChatDetails({
                     receiverId: otherUserId,
                     receiverUsername: username,
-                    threadId: threadId,
+                    threadId,
                 });
             } else {
                 setActiveChatDetails({
@@ -268,15 +251,10 @@ export default function DirectMessages() {
                     threadId: null,
                 });
             }
-            // Set messages to empty, because a new thread will always have no messages
             setCurrentChatMessages([]);
         }
     };
 
-    /**
-     * Retrieves a list of messages when a direct message is opened and
-     * populates the screen with the messages
-     */
     const openDirectMessage = async (
         otherUserId: number,
         username: string,
@@ -288,30 +266,28 @@ export default function DirectMessages() {
             userDmRead: UserDmRead;
             otherUserDmRead: UserDmRead;
         }>(`dms/thread/${otherUserId}`, "GET");
+
         if (response.success) {
             setNewMessagePopupOpen(false);
             setCurrentChatMessages(response.data.messages);
             setUserDmRead(response.data.userDmRead);
             setOtherUserDmRead(response.data.otherUserDmRead);
-            console.log(otherUserDmRead);
             setLastReadMessageId(
                 response.data.otherUserDmRead.last_read_message_id ?? 0
             );
             setActiveChatDetails({
                 receiverId: otherUserId,
                 receiverUsername: username,
-                threadId: threadId,
+                threadId,
             });
         }
-        // Might want to handle case where messages aren't found
-        // It should be found though, so unlikely
     };
+
     return (
         <div className=" max-w-[1440px] mx-auto px-6 ">
             <div className="flex w-full  bg-sky-800 h-[75vh]">
-                {/** Left Sidebar Messages */}
+                {/* Left Sidebar Messages */}
                 <div className="max-w-[400px] w-full overflow-y-scroll">
-                    {/** No messages to display */}
                     {messages.length === 0 && (
                         <div className="px-4 py-2">
                             <p className="text-lg text-white">
@@ -319,32 +295,32 @@ export default function DirectMessages() {
                             </p>
                         </div>
                     )}
-                    {/** End of no messages to display */}
                     {messages.map((message) => {
+                        const otherUser =
+                            message.senderUsername == user.username
+                                ? message.receiverUsername
+                                : message.senderUsername;
+                        const otherUserId =
+                            message.receiverId == Number(user.userId)
+                                ? message.senderId
+                                : message.receiverId;
+
                         return (
                             <DirectMessageDisplay
-                                username={
-                                    message.senderUsername == user.username
-                                        ? message.receiverUsername
-                                        : message.senderUsername
-                                }
+                                key={message.threadId} // ⬅️ add a key
+                                username={otherUser}
                                 message={message.message}
                                 isRead={message.isRead}
                                 sentAt={message.createdAt}
-                                otherUserId={
-                                    message.receiverId == Number(user.userId)
-                                        ? message.senderId
-                                        : message.receiverId
-                                }
+                                otherUserId={otherUserId}
                                 threadId={message.threadId}
                                 openDirectMessage={openDirectMessage}
                             />
                         );
                     })}
                 </div>
-                {/** End of Left Sidebar Messages  */}
 
-                {/** Current Chat Message */}
+                {/* Current Chat Message */}
                 <div className="px-10 w-full flex flex-col justify-between mb-4 relative">
                     <div className="flex justify-end">
                         {activeChatDetails && (
@@ -363,47 +339,43 @@ export default function DirectMessages() {
                             createNewMessageThread={createNewMessageThread}
                         />
                     )}
+
                     {currentChatMessages ? (
                         <>
                             <div className="overflow-y-auto pr-2">
-                                {currentChatMessages.map((message) => {
-                                    return (
-                                        <DmDisplayMessage
-                                            message={message}
-                                            isUserMessage={
-                                                message.sender_id ==
-                                                Number(user.userId)
-                                            }
-                                            liked={false}
-                                            isLastRead={
-                                                lastReadMessageId == message.id
-                                            }
-                                        />
-                                    );
-                                })}
+                                {currentChatMessages.map((message) => (
+                                    <DmDisplayMessage
+                                        key={message.id} // ⬅️ add a key
+                                        message={message}
+                                        isUserMessage={
+                                            message.sender_id ==
+                                            Number(user.userId)
+                                        }
+                                        liked={false}
+                                        isLastRead={
+                                            lastReadMessageId == message.id
+                                        }
+                                    />
+                                ))}
                             </div>
-                            <div className="">
+                            <div>
                                 <SendMessage
                                     sendChatMessage={sendChatMessage}
                                 />
                             </div>
                         </>
                     ) : (
-                        <>
-                            {!newMessagePopupOpen && (
-                                <div className="flex justify-center items-center h-full">
-                                    <div className="bg-white hover:bg-sky-100 transition rounded-xl px-4 py-2 shadow-lg cursor-pointer">
-                                        <p className="text-sky-950 font-bold">
-                                            Send a Message
-                                        </p>
-                                    </div>
+                        !newMessagePopupOpen && (
+                            <div className="flex justify-center items-center h-full">
+                                <div className="bg-white hover:bg-sky-100 transition rounded-xl px-4 py-2 shadow-lg cursor-pointer">
+                                    <p className="text-sky-950 font-bold">
+                                        Send a Message
+                                    </p>
                                 </div>
-                            )}
-                        </>
+                            </div>
+                        )
                     )}
                 </div>
-
-                {/** End of Current Chat Messages */}
             </div>
         </div>
     );
