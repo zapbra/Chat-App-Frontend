@@ -36,9 +36,9 @@ export default function DirectMessages() {
     const [following, setFollowing] = useState<Follower[]>([]);
     const [socket, setSocket] = useState<Socket | null>(null);
     const [userDmRead, setUserDmRead] = useState<UserDmRead | null>(null);
-    const [otherUserDmRead, setOtherUserDmRead] = useState<UserDmRead | null>(
-        null
-    );
+    // const [otherUserDmRead, setOtherUserDmRead] = useState<UserDmRead | null>(
+    //     null
+    // );
     const [dmJoined, setDmJoined] = useState(false);
     const [lastReadMessageId, setLastReadMessageId] = useState(0);
 
@@ -271,7 +271,7 @@ export default function DirectMessages() {
             setNewMessagePopupOpen(false);
             setCurrentChatMessages(response.data.messages);
             setUserDmRead(response.data.userDmRead);
-            setOtherUserDmRead(response.data.otherUserDmRead);
+            //setOtherUserDmRead(response.data.otherUserDmRead);
             setLastReadMessageId(
                 response.data.otherUserDmRead.last_read_message_id ?? 0
             );
