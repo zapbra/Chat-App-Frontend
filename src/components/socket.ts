@@ -3,15 +3,14 @@ import { io, Socket } from "socket.io-client";
 
 const apiUrl = import.meta.env.VITE_SOCKET_URL;
 
-let socket: Socket | null = null;
+let socket: Socket | undefined;
 
 export const ensureSocket = (): Socket => {
     if (!socket) {
         socket = io(apiUrl, {
-            autoConnect: false, // important
+            autoConnect: false,
             transports: ["websocket"],
         });
-
         socket.on("connect_error", (err) => {
             console.log("socket connect_error:", err?.message || err);
         });
@@ -19,7 +18,8 @@ export const ensureSocket = (): Socket => {
     return socket;
 };
 
-// Call this right after login (or whenever token rotates)
+export const getSocket = (): Socket => ensureSocket();
+
 export const connectSocket = (auth?: {
     username: string;
     userId: string | number;
@@ -32,14 +32,12 @@ export const connectSocket = (auth?: {
             userId: String(auth.userId),
             token: auth.token,
         };
+        if (s.connected) s.disconnect(); // ensure server sees new auth
     }
-    if (!s.connected) s.connect();
+    s.connect();
     return s;
 };
 
-// If user logs out
 export const disconnectSocket = () => {
     if (socket?.connected) socket.disconnect();
 };
-
-export const getSocket = (): Socket | null => ensureSocket();

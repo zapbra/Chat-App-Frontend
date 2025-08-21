@@ -44,7 +44,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                     localStorage.setItem("accessToken", accessToken);
 
                     res = await fetch(`${URL}/user`, {
-                        headers: { Authorization: `Bearer ${accessToken}` }, // <-- fixed stray "}"
+                        headers: { Authorization: `Bearer ${accessToken}` },
                     });
                     if (!res.ok) {
                         resetUserContext();
@@ -60,7 +60,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                     userId: String(data.id),
                 });
 
-                // 👉 connect the socket with current auth
+                console.log("access token");
+                console.log(accessToken);
+                console.log("user data");
+                console.log(data);
+                //  connect the socket with current auth
                 connectSocket({
                     username: data.username,
                     userId: data.id,
@@ -73,9 +77,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
         checkAuth();
 
-        // optional: disconnect on provider unmount
+        // disconnect on provider unmount
         return () => disconnectSocket();
-    }, []);
+    }, [user.loggedIn, user.username, user.userId]);
 
     const contextValue = { user, setUser, resetUserContext };
 

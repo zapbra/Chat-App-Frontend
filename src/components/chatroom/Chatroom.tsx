@@ -1,5 +1,5 @@
 import { useState, useEffect, useContext, useRef, useCallback } from "react";
-import { getSocket } from "../socket";
+import { getSocket, connectSocket } from "../socket";
 import SendMessage from "./SendMessage";
 import { Message, ReactionMap } from "../../types";
 import { useParams } from "react-router";
@@ -41,8 +41,35 @@ export default function Chatroom() {
         setSocket(getSocket());
     }, []);
 
+    useEffect(() => {
+        if (!user.loggedIn) return;
+        const s = getSocket();
+        if (!s.connected) {
+            const token = localStorage.getItem("accessToken");
+            if (token) {
+                connectSocket({
+                    username: user.username,
+                    userId: user.userId,
+                    token,
+                });
+            }
+        }
+    }, [user.loggedIn, user.username, user.userId]);
+
     const sendChatMessage = (message: string) => {
+        console.log("sending message");
         const socket = getSocket();
+        if (!socket.connected) {
+            const token = localStorage.getItem("accessToken");
+            if (token)
+                connectSocket({
+                    username: user.username,
+                    userId: user.userId,
+                    token,
+                });
+            console.warn("Socket not connected yet; message dropped"); // or queue it yourself
+            return;
+        }
         if (!socket) {
             // Might want to update this to handle errors more gracefully?
             console.error("Socket not initialized.");
